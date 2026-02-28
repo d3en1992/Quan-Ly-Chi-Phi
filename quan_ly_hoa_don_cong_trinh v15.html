@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chi Phí Công Trình</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f4f0;
+  --paper: #fefefe;
+  --ink: #1a1814;
+  --ink2: #5a5650;
+  --ink3: #9a9590;
+  --line: #e2e0db;
+  --line2: #cccac4;
+  --gold: #c8870a;
+  --gold-bg: #fef3dc;
+  --blue: #1e5cb3;
+  --blue-bg: #e8f0fb;
+  --green: #1a7a45;
+  --green-bg: #e6f4ec;
+  --red: #c0392b;
+  --red-bg: #fdecea;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 13px; line-height: 1.5; }
+
+.topbar {
+  background: var(--ink); color: #fff; padding: 0 24px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+.app-name span { color: #f0b429; }
+.topbar-nav { display: flex; gap: 2px; }
+.nav-btn {
+  padding: 6px 14px; border: none; background: transparent; color: rgba(255,255,255,0.55);
+  font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; border-radius: 5px; transition: all 0.15s; letter-spacing: 0.2px;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-btn.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.top-stat {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 12px;
+}
+.top-stat-label { color: rgba(255,255,255,0.5); }
+.top-stat-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #f0b429; }
+
+.content { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.section-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+.section-title .dot { width: 8px; height: 8px; background: var(--gold); border-radius: 50%; }
+.btn-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px;
+  border-radius: 6px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; border: 1px solid transparent; white-space: nowrap;
+}
+.btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn-primary:hover { background: #333; }
+.btn-gold { background: var(--gold); color: #fff; border-color: var(--gold); }
+.btn-gold:hover { background: #a87008; }
+.btn-outline { background: var(--paper); color: var(--ink); border-color: var(--line2); }
+.btn-outline:hover { border-color: var(--ink2); background: var(--bg); }
+.btn-danger { background: var(--red-bg); color: var(--red); border-color: #f5c6c3; }
+.btn-danger:hover { background: #fad7d5; }
+.btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-green:hover { background: #155c35; }
+.btn-sm { padding: 4px 9px; font-size: 11px; }
+.btn-icon { padding: 5px 8px; }
+
+/* Entry bar */
+.entry-date-bar {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 10px 10px 0 0;
+  padding: 10px 16px; display: flex; align-items: center; gap: 16px;
+  border-bottom: 2px solid var(--gold); flex-wrap: wrap;
+}
+.bar-label { font-size: 11px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.date-input {
+  font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600;
+  padding: 5px 10px; border: 1px solid var(--line2); border-radius: 5px;
+  background: var(--bg); color: var(--ink); cursor: pointer; outline: none;
+}
+.date-input:focus { border-color: var(--gold); }
+.bare-select {
+  padding: 6px 26px 6px 9px; border: 1px solid var(--line2); border-radius: 5px;
+  font-size: 13px; background: var(--bg); font-family: 'IBM Plex Sans', sans-serif;
+  color: var(--ink); outline: none; cursor: pointer; appearance: none; min-width: 260px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9590'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.bare-select:focus { border-color: var(--gold); }
+
+/* Entry table wrapper */
+.entry-table-wrap {
+  background: var(--paper); border: 1px solid var(--line); border-top: none;
+  border-radius: 0 0 10px 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.table-scroll { overflow-x: auto; }
+.entry-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+.entry-table thead th {
+  background: #eeece7; padding: 7px 8px; text-align: left; font-size: 10px;
+  font-weight: 700; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--line2); border-right: 1px solid var(--line); white-space: nowrap;
+}
+.entry-table thead th:last-child { border-right: none; }
+.entry-table tbody tr { border-bottom: 1px solid var(--line); transition: background 0.1s; }
+.entry-table tbody tr:last-child { border-bottom: none; }
+.entry-table tbody tr:hover td { background: #fffcf3; }
+.entry-table tbody td { padding: 2px 2px; border-right: 1px solid var(--line); vertical-align: middle; }
+.entry-table tbody td:last-child { border-right: none; }
+
+.row-num { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink3); width: 32px; padding: 6px 4px !important; user-select: none; }
+
+.cell-input {
+  width: 100%; padding: 7px 7px; border: none; background: transparent;
+  font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: var(--ink);
+  outline: none; transition: background 0.1s; min-width: 0;
+}
+.cell-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
+.cell-input.mono { font-family: 'IBM Plex Mono', monospace; }
+.cell-input.right { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+.cell-input.center { text-align: center; }
+select.cell-input {
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9590'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center; padding-right: 20px;
+}
+.tt-cell {
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--green); text-align: right; padding: 7px 8px !important; white-space: nowrap;
+}
+.tt-cell.empty { color: var(--ink3); font-weight: 400; }
+.del-btn { background: transparent; border: none; color: var(--ink3); cursor: pointer; padding: 5px 7px; border-radius: 4px; font-size: 13px; transition: all 0.15s; display: block; margin: auto; }
+.del-btn:hover { background: var(--red-bg); color: var(--red); }
+
+/* col widths */
+.col-num   { width: 32px; }
+.col-loai  { width: 160px; }
+.col-ct    { width: 220px; }
+.col-nguoi { width: 150px; }
+.col-ncc   { width: 160px; }
+.col-nd    { min-width: 200px; }
+.col-tien  { width: 140px; }
+.col-del   { width: 34px; }
+
+.add-row-bar {
+  background: #f3f1ec; border-top: 1px dashed var(--line2); padding: 7px 14px;
+  display: flex; gap: 8px; align-items: center;
+}
+
+.save-bar {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+  box-shadow: var(--shadow); margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+}
+.save-bar-info { font-size: 12px; color: var(--ink2); display: flex; align-items: center; gap: 20px; }
+.save-bar-info .hi { font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: var(--green); font-size: 15px; }
+
+/* Records */
+.records-wrap { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.records-toolbar {
+  padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center;
+  gap: 10px; background: #f3f1ec; flex-wrap: wrap;
+}
+.search-box { position: relative; flex: 1; min-width: 160px; }
+.search-box input { width: 100%; padding: 6px 10px 6px 28px; border: 1px solid var(--line2); border-radius: 5px; font-size: 12px; background: var(--paper); font-family: 'IBM Plex Sans', sans-serif; outline: none; }
+.search-box input:focus { border-color: var(--gold); }
+.search-box .ico { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--ink3); font-size: 13px; }
+.filter-sel { padding: 6px 26px 6px 9px; border: 1px solid var(--line2); border-radius: 5px; font-size: 12px; background: var(--paper); font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9590'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+.filter-sel:focus { border-color: var(--gold); }
+
+.records-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.records-table thead th { background: #eeece7; padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 700; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--line2); white-space: nowrap; }
+.records-table tbody tr { border-bottom: 1px solid var(--line); transition: background 0.1s; }
+.records-table tbody tr:hover { background: #fffcf3; }
+.records-table tbody td { padding: 9px 12px; vertical-align: middle; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.tag-gold { background: var(--gold-bg); color: var(--gold); }
+.amount-td { font-family: 'IBM Plex Mono', monospace; font-weight: 600; text-align: right; color: var(--green); }
+.empty-row td { text-align: center; padding: 48px 20px; color: var(--ink3); font-size: 13px; }
+.pagination { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line); background: #f3f1ec; font-size: 12px; color: var(--ink2); gap: 8px; flex-wrap: wrap; }
+.page-btns { display: flex; gap: 4px; }
+.page-btn { padding: 4px 9px; border: 1px solid var(--line2); border-radius: 4px; background: var(--paper); font-size: 12px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); transition: all 0.1s; }
+.page-btn:hover { background: var(--bg); }
+.page-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+
+/* CT page */
+.ct-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
+.ct-card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s; cursor: pointer; }
+.ct-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.ct-card-head { padding: 14px 16px; border-bottom: 1px solid var(--line); background: #f3f1ec; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.ct-card-name { font-size: 13px; font-weight: 700; line-height: 1.4; }
+.ct-card-count { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+.ct-card-total { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+.ct-card-body { padding: 12px 16px; }
+.ct-loai-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.ct-loai-row:last-child { border-bottom: none; }
+.ct-loai-name { color: var(--ink2); }
+.ct-loai-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--ink); }
+
+/* Settings */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.settings-card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.settings-card-head { padding: 12px 16px; background: #f3f1ec; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+.settings-card-title { font-size: 13px; font-weight: 700; }
+.settings-list { padding: 6px 0; max-height: 340px; overflow-y: auto; }
+.settings-item { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); transition: background 0.1s; }
+.settings-item:last-child { border-bottom: none; }
+.settings-item:hover { background: var(--bg); }
+.s-name { flex: 1; font-size: 12px; font-weight: 500; }
+.s-edit-input { flex: 1; padding: 4px 8px; border: 1px solid var(--line2); border-radius: 4px; font-size: 12px; background: var(--bg); font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); outline: none; display: none; }
+.s-edit-input.on { display: block; }
+.s-name.off { display: none; }
+.s-edit-input:focus { border-color: var(--gold); background: var(--paper); }
+.settings-add { padding: 10px 10px; border-top: 1px dashed var(--line2); display: flex; gap: 6px; }
+.settings-add input { flex: 1; padding: 6px 10px; border: 1px solid var(--line2); border-radius: 5px; font-size: 12px; font-family: 'IBM Plex Sans', sans-serif; outline: none; background: var(--bg); }
+.settings-add input:focus { border-color: var(--gold); background: var(--paper); }
+
+/* Modal */
+.overlay { position: fixed; inset: 0; background: rgba(26,24,20,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(2px); }
+.overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(--paper); border-radius: 12px; width: 100%; max-width: 900px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.2); transform: scale(0.97) translateY(8px); transition: transform 0.2s; }
+.overlay.open .modal { transform: scale(1) translateY(0); }
+.modal-head { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; background: #f3f1ec; }
+.modal-head h3 { font-size: 15px; font-weight: 700; }
+.close-btn { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--ink2); padding: 2px 6px; border-radius: 4px; }
+.close-btn:hover { background: var(--line); color: var(--ink); }
+.modal-body { overflow-y: auto; padding: 20px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.25); z-index: 999; transform: translateY(60px); opacity: 0; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+
+/* Chấm công */
+.cc-day-input {
+  width: 100%; text-align: center; border: none; background: transparent;
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
+  color: var(--ink); outline: none; padding: 6px 2px;
+}
+.cc-day-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
+.cc-day-input.has-val { color: var(--green); }
+.cc-day-input.half-val { color: var(--blue); }
+.cc-tc-cell { text-align: center; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 13px; color: var(--gold); padding: 6px 8px !important; }
+.cc-wage-input { width: 100%; text-align: right; border: none; background: transparent; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink2); outline: none; padding: 6px 8px; }
+.cc-wage-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
+.cc-total-cell { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 12px; color: var(--green); padding: 6px 8px !important; white-space: nowrap; }
+.cc-name-input { width: 100%; border: none; background: transparent; font-family: 'IBM Plex Sans', monospace; font-size: 12px; font-weight: 600; color: var(--ink); outline: none; padding: 6px 8px; }
+.cc-name-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
+.cc-sum-row td { background: #f0ede8 !important; font-weight: 700; border-top: 2px solid var(--line2); }
+.cc-day-header { text-align: center !important; min-width: 44px; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="app-name">🏗️ Chi Phí <span>Công Trình</span></div>
+    <nav class="topbar-nav">
+      <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">Nhập Hóa Đơn</button>
+      <button class="nav-btn" data-page="tatca" onclick="goPage(this,'tatca')">Tất Cả CP</button>
+      <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công Tuần</button>
+      <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng TP/NCC</button>
+      <button class="nav-btn" data-page="ct" onclick="goPage(this,'ct')">Tổng CP Công Trình</button>
+      <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <div class="top-stat"><span class="top-stat-label">Tổng HĐ</span><span class="top-stat-val" id="top-cnt">0</span></div>
+    <div class="top-stat"><span class="top-stat-label">Tổng chi phí</span><span class="top-stat-val" id="top-total">0đ</span></div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- PAGE: NHẬP -->
+  <div class="page active" id="page-nhap">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Hóa Đơn</div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
+        <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu tất cả</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar">
+      <span class="bar-label">Ngày</span>
+      <input type="date" id="entry-date" class="date-input">
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-loai">Loại Chi Phí *</th>
+              <th class="col-ct">Công Trình *</th>
+              <th class="col-nguoi">Người TH</th>
+              <th class="col-ncc">Nhà Cung Cấp</th>
+              <th class="col-nd">Nội Dung / Ghi Chú</th>
+              <th class="col-tien">Số Tiền (đ)</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="entry-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addRows(5)">+ 5 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addRows(10)">+ 10 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
+        <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
+      </div>
+      <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu tất cả hóa đơn</button>
+    </div>
+  </div>
+
+  <!-- PAGE: CT -->
+  <div class="page" id="page-ct">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Tổng CP Công Trình</div>
+      <div class="btn-group">
+        <span class="bar-label" style="font-size:12px">Sắp xếp:</span>
+        <select class="filter-sel" id="ct-sort" onchange="renderCtPage()" style="font-size:12px">
+          <option value="value">Theo giá trị (cao → thấp)</option>
+          <option value="name">Theo tên (A → Z)</option>
+        </select>
+        <button class="btn btn-outline" onclick="renderCtPage()">↻ Làm mới</button>
+      </div>
+    </div>
+    <div id="ct-grid" class="ct-summary-grid"></div>
+  </div>
+
+  <!-- PAGE: TẤT CẢ -->
+  <div class="page" id="page-tatca">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Tất Cả Chi Phí</div>
+      <button class="btn btn-outline" onclick="exportAllCSV()">⬇ Xuất CSV</button>
+    </div>
+    <div class="records-wrap">
+      <div class="records-toolbar">
+        <div class="search-box">
+          <span class="ico">🔍</span>
+          <input type="text" id="search" placeholder="Tìm kiếm..." oninput="filterAndRender()">
+        </div>
+        <select class="filter-sel" id="f-ct" onchange="filterAndRender()"><option value="">Tất cả công trình</option></select>
+        <select class="filter-sel" id="f-loai" onchange="filterAndRender()"><option value="">Tất cả loại</option></select>
+        <select class="filter-sel" id="f-month" onchange="filterAndRender()"><option value="">Tất cả tháng</option></select>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="records-table">
+          <thead>
+            <tr>
+              <th>Ngày</th><th>Công Trình</th><th>Loại Chi Phí</th>
+              <th>Người TH</th><th>Nhà Cung Cấp</th><th>Nội Dung</th>
+              <th style="text-align:right">Số Tiền</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="all-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: DANH MỤC -->
+  <div class="page" id="page-danhmuc">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Quản Lý Danh Mục</div>
+      <span style="font-size:12px;color:var(--ink3)">Nhấn ✏️ hoặc nhấp đúp để sửa tên • Thay đổi sẽ tự cập nhật vào hóa đơn đã lưu</span>
+    </div>
+    <div id="dm-grid" class="settings-grid"></div>
+  </div>
+
+  <!-- PAGE: TIỀN ỨNG TP/NCC (gộp nhập + tổng) -->
+  <div class="page" id="page-nhapung">
+
+    <!-- Bảng 1: Nhập tiền ứng -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="clearUngTable()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline" onclick="exportUngEntryCSV()">⬇ Xuất CSV</button>
+        <button class="btn btn-green" onclick="saveAllUngRows()">💾 Lưu tất cả</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar">
+      <span class="bar-label">Ngày</span>
+      <input type="date" id="ung-date" class="date-input">
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th style="width:200px">Thầu Phụ / Nhà CC <span style="color:var(--gold)">*</span></th>
+              <th style="width:220px">Công Trình</th>
+              <th style="width:140px">Số Tiền Ứng (đ)</th>
+              <th style="min-width:220px">Nội Dung / Ghi Chú</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="ung-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(5)">+ 5 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(10)">+ 10 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Dòng có dữ liệu: <strong id="ung-row-count">0</strong></span>
+        <span>Tổng tiền ứng: <span class="hi" id="ung-entry-total">0 đ</span></span>
+      </div>
+      <button class="btn btn-green" onclick="saveAllUngRows()">💾 Lưu tất cả tiền ứng</button>
+    </div>
+
+    <!-- Bảng 2: Tổng tiền ứng -->
+    <div style="margin-top:24px">
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+        <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
+      </div>
+      <div class="records-wrap">
+        <div class="records-toolbar">
+          <div class="search-box">
+            <span class="ico">🔍</span>
+            <input type="text" id="ung-search" placeholder="Tìm kiếm..." oninput="filterAndRenderUng()">
+          </div>
+          <select class="filter-sel" id="uf-tp" onchange="filterAndRenderUng()"><option value="">Tất cả TP/NCC</option></select>
+          <select class="filter-sel" id="uf-ct" onchange="filterAndRenderUng()"><option value="">Tất cả công trình</option></select>
+          <select class="filter-sel" id="uf-month" onchange="filterAndRenderUng()"><option value="">Tất cả tháng</option></select>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Thầu Phụ / Nhà CC</th>
+                <th>Công Trình</th>
+                <th>Nội Dung</th>
+                <th style="text-align:right">Số Tiền Ứng</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ung-all-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="ung-pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: SỔ CHẤM CÔNG -->
+  <div class="page" id="page-chamcong">
+
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Sổ Chấm Công</div>
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="clearCCWeek()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCCWeekCSV()">⬇ CSV tuần này</button>
+        <button class="btn btn-green btn-sm" onclick="saveCCWeek()">💾 Lưu tuần này</button>
+      </div>
+    </div>
+
+    <!-- Week navigator -->
+    <div class="entry-date-bar" style="gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="ccPrevWeek()">← Tuần trước</button>
+      <span id="cc-week-label" style="font-size:13px;font-weight:700;min-width:200px;text-align:center;color:var(--gold)"></span>
+      <button class="btn btn-outline btn-sm" onclick="ccNextWeek()">Tuần sau →</button>
+      <div style="width:1px;height:24px;background:var(--line2)"></div>
+      <span class="bar-label">Từ ngày</span>
+      <input type="date" id="cc-from" class="date-input" onchange="onCCFromChange()">
+      <span class="bar-label">–</span>
+      <input type="date" id="cc-to" class="date-input" readonly style="background:#f0ede8;cursor:default;color:var(--ink3)">
+      <div style="width:1px;height:24px;background:var(--line2)"></div>
+      <span class="bar-label">Công trình</span>
+      <select id="cc-ct-sel" class="bare-select" style="min-width:240px;font-size:12px" onchange="onCCCtSelChange()">
+        <option value="">-- Chọn công trình --</option>
+      </select>
+    </div>
+
+    <!-- Attendance table -->
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table" style="min-width:1100px">
+          <thead><tr id="cc-thead-row"></tr></thead>
+          <tbody id="cc-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addCCWorker()">+ Thêm công nhân</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">
+          <strong>1</strong> = 1 công &nbsp;·&nbsp; <strong>0.5</strong> = nửa công &nbsp;·&nbsp; để trống = nghỉ
+        </span>
+      </div>
+    </div>
+
+    <!-- Summary bar (no duplicate save button) -->
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Tổng công: <strong id="cc-sum-tc">0</strong></span>
+        <span>Tổng lương: <span class="hi" id="cc-sum-luong">0 đ</span></span>
+        <span>Tổng cộng tuần: <span class="hi" style="color:var(--gold)" id="cc-sum-tongcong">0 đ</span></span>
+      </div>
+    </div>
+
+    <!-- Lịch sử chấm công TUẦN -->
+    <div style="margin-top:20px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Lịch Sử Chấm Công Tuần</div>
+        <div class="btn-group">
+          <select class="filter-sel" id="cc-hist-ct" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả CT</option></select>
+          <select class="filter-sel" id="cc-hist-week" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả tuần</option></select>
+          <button class="btn btn-outline btn-sm" onclick="exportCCHistCSV()">⬇ Xuất CSV</button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Tuần</th><th>Công Trình</th><th>Tên CN</th>
+              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
+              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
+              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
+              <th style="text-align:center">T7</th>
+              <th style="text-align:center">TC</th>
+              <th style="text-align:right">Lương/Ngày</th>
+              <th style="text-align:right">Tổng Lương</th>
+              <th style="text-align:right">Phụ Cấp</th>
+              <th style="text-align:right">HĐ Mua Lẻ</th>
+              <th>Nội Dung</th>
+              <th style="text-align:right">Tổng Cộng</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="cc-hist-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="cc-hist-pagination"></div>
+      </div>
+    </div>
+
+    <!-- Tổng Lương Tuần (theo tên CN) -->
+    <div style="margin-top:20px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Tổng Lương Tuần (theo Công Nhân)</div>
+        <div class="btn-group">
+          <select class="filter-sel" id="cc-tlt-week" onchange="renderCCTLT()"><option value="">Tất cả tuần</option></select>
+          <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Tuần</th><th>Tên CN</th>
+              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
+              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
+              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
+              <th style="text-align:center">T7</th>
+              <th style="text-align:center">TC</th>
+              <th style="text-align:right">TC Lương</th>
+              <th style="text-align:right">Lương TB/Ngày</th>
+              <th>Công Trình</th>
+            </tr></thead>
+            <tbody id="cc-tlt-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="cc-tlt-pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /content -->
+
+
+<div class="overlay" id="ct-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Chi tiết</h3>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════
+//  DATA
+// ══════════════════════════════
+const DEFAULTS = {
+  congTrinh: ["CÔNG TY - NHÀ","SC CT CÔ NHUNG - 191 THÀNH CÔNG, Q TÂN PHÚ","CT BỬU AN - 85/5 LÊ LAI, P12, Q TÂN BÌNH","CT A DŨNG - SUỐI CÁT, ĐỒNG NAI","CT BÁC CHỮ - 23/51A NGUYỄN HỮU TIẾN, Q TÂN PHÚ","CT BÁC ĐỆ - MỸ HẠNH NAM, ĐỨC HÒA, LONG AN","SC QUẬN 9","SC MINH CHÍNH - Q GÒ VẤP","SC CT LONG HẢI - VŨNG TÀU"],
+  loaiChiPhi: ["Nhân Công","Thầu Phụ","Vật Liệu XD","Sắt Thép","Vật Tư Điện Nước","Đổ Bê Tông","Copha - VTP - Máy","Hóa Đơn Lẻ","Quyết Toán - Phát Sinh","Thiết Kế / Xin Phép","Chi Phí Khác"],
+  nhaCungCap: ["Công ty VLXD Minh Phát","Cửa Hàng Sắt Thép Hùng","Điện Nước Phú Thịnh","Hóa Đơn Điện Lực"],
+  nguoiTH: ["A Long","A Toán","A Dũng","Duy Sáng","HD Lẻ","Tình"]
+};
+
+const CATS = [
+  { id:'congTrinh', title:'🏗️ Công Trình', sk:'cat_ct', refField:'congtrinh' },
+  { id:'loaiChiPhi', title:'📂 Loại Chi Phí', sk:'cat_loai', refField:'loai' },
+  { id:'nhaCungCap', title:'🏪 Nhà Cung Cấp', sk:'cat_ncc', refField:'ncc' },
+  { id:'nguoiTH', title:'👷 Người Thực Hiện', sk:'cat_nguoi', refField:'nguoi' }
+];
+
+function load(k, def) { try { const d=localStorage.getItem(k); return d?JSON.parse(d):def.slice(); } catch(e){ return def.slice(); } }
+function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+let cats = {
+  congTrinh: load('cat_ct', DEFAULTS.congTrinh),
+  loaiChiPhi: load('cat_loai', DEFAULTS.loaiChiPhi),
+  nhaCungCap: load('cat_ncc', DEFAULTS.nhaCungCap),
+  nguoiTH: load('cat_nguoi', DEFAULTS.nguoiTH)
+};
+
+let invoices = load('inv_v3', []);
+let filteredInvs = [];
+let curPage = 1;
+const PG = 60;
+
+// ══════════════════════════════
+//  INIT
+// ══════════════════════════════
+function init() {
+  document.getElementById('entry-date').value = today();
+  document.getElementById('ung-date').value = today();
+  initTable(10);
+  initUngTable(8);
+  initCC();
+  updateTop();
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+
+// ══════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════
+function goPage(btn, id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id==='ct') renderCtPage();
+  if (id==='tatca') { buildFilters(); filterAndRender(); }
+  if (id==='danhmuc') renderSettings();
+  if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
+  if (id==='chamcong') { renderCC(); renderCCHistory(); }
+}
+
+// ══════════════════════════════
+//  ENTRY TABLE
+// ══════════════════════════════
+function initTable(n=10) {
+  document.getElementById('entry-tbody').innerHTML='';
+  for(let i=0;i<n;i++) addRow();
+  calcSummary();
+}
+
+function addRows(n) { for(let i=0;i<n;i++) addRow(); }
+
+function addRow(d={}) {
+  const tbody = document.getElementById('entry-tbody');
+  const num = tbody.children.length + 1;
+  const ctDef = d.congtrinh || '';
+
+  const tr = document.createElement('tr');
+
+  const loaiOpts = `<option value="">-- Chọn --</option>` + cats.loaiChiPhi.map(v=>`<option value="${x(v)}" ${v===(d.loai||'')?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===ctDef?'selected':''}>${x(v)}</option>`).join('');
+  const dlNguoi = 'dlN' + num + Date.now();
+  const dlNcc   = 'dlC' + num + Date.now();
+
+  tr.innerHTML = `
+    <td class="row-num">${num}</td>
+    <td><select class="cell-input" data-f="loai">${loaiOpts}</select></td>
+    <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
+    <td>
+      <input class="cell-input" data-f="nguoi" list="${dlNguoi}" value="${x(d.nguoi||'')}" placeholder="Nhập hoặc chọn...">
+      <datalist id="${dlNguoi}">${cats.nguoiTH.map(v=>`<option value="${x(v)}">`).join('')}</datalist>
+    </td>
+    <td>
+      <input class="cell-input" data-f="ncc" list="${dlNcc}" value="${x(d.ncc||'')}" placeholder="Nhập hoặc chọn...">
+      <datalist id="${dlNcc}">${cats.nhaCungCap.map(v=>`<option value="${x(v)}">`).join('')}</datalist>
+    </td>
+    <td><input class="cell-input" data-f="nd" value="${x(d.nd||'')}" placeholder="Nội dung..."></td>
+    <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}"></td>
+    <td><button class="del-btn" onclick="delRow(this)">✕</button></td>
+  `;
+
+  // Thousand-separator logic for tien input
+  const tienInput = tr.querySelector('[data-f="tien"]');
+  tienInput.addEventListener('input', function() {
+    const raw = this.value.replace(/[.,]/g,'');
+    this.dataset.raw = raw;
+    if(raw) this.value = numFmt(parseInt(raw,10)||0);
+    calcSummary();
+  });
+  tienInput.addEventListener('focus', function() {
+    this.value = this.dataset.raw || '';
+  });
+  tienInput.addEventListener('blur', function() {
+    const raw = parseInt(this.dataset.raw||'0',10)||0;
+    this.value = raw ? numFmt(raw) : '';
+  });
+
+  tr.querySelectorAll('input,select').forEach(el => {
+    if(el.dataset.f!=='tien') {
+      el.addEventListener('input', calcSummary);
+      el.addEventListener('change', calcSummary);
+    }
+  });
+
+  tbody.appendChild(tr);
+}
+
+function delRow(btn) { btn.closest('tr').remove(); renumber(); calcSummary(); }
+
+function renumber() {
+  document.querySelectorAll('#entry-tbody tr').forEach((tr,i) => {
+    tr.querySelector('.row-num').textContent = i+1;
+  });
+}
+
+function calcSummary() {
+  let cnt=0, total=0;
+  document.querySelectorAll('#entry-tbody tr').forEach(tr => {
+    const loai = tr.querySelector('[data-f="loai"]')?.value||'';
+    const ct = tr.querySelector('[data-f="ct"]')?.value||'';
+    const tienEl = tr.querySelector('[data-f="tien"]');
+    const tien = parseInt(tienEl?.dataset.raw||'0',10)||0;
+    if(loai||ct||tien>0) { cnt++; total += tien; }
+  });
+  document.getElementById('row-count').textContent = cnt;
+  document.getElementById('entry-total').textContent = fmtM(total);
+}
+
+function clearTable() {
+  if(!confirm('Xóa toàn bộ bảng nhập hiện tại?')) return;
+  initTable(10);
+}
+
+function saveAllRows() {
+  const date = document.getElementById('entry-date').value;
+  if(!date) { toast('Vui lòng chọn ngày!','error'); return; }
+  let saved=0, errRow=0;
+  document.querySelectorAll('#entry-tbody tr').forEach(tr => {
+    const loai = (tr.querySelector('[data-f="loai"]')?.value||'').trim();
+    const ct = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
+    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    if(!loai&&!ct&&!tien) return;
+    if(!ct||!loai) { errRow++; tr.style.background='#fdecea'; return; }
+    tr.style.background='';
+    invoices.unshift({
+      id: Date.now()+Math.random(), ngay:date, congtrinh:ct, loai,
+      nguoi:(tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
+      ncc:(tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
+      nd:(tr.querySelector('[data-f="nd"]')?.value||'').trim(),
+      tien, thanhtien: tien
+    });
+    saved++;
+  });
+  if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại Chi Phí (đánh dấu đỏ)!`,'error'); return; }
+  if(saved===0) { toast('Không có dòng hợp lệ!','error'); return; }
+  save('inv_v3', invoices);
+  updateTop();
+  toast(`✅ Đã lưu ${saved} hóa đơn!`,'success');
+  initTable(10);
+  document.getElementById('entry-date').value = today();
+}
+
+// ══════════════════════════════
+//  ALL PAGE
+// ══════════════════════════════
+function buildFilters() {
+  const cts = [...new Set(invoices.map(i=>i.congtrinh))].filter(Boolean).sort();
+  const loais = [...new Set(invoices.map(i=>i.loai))].filter(Boolean).sort();
+  const months = [...new Set(invoices.map(i=>i.ngay.slice(0,7)))].filter(Boolean).sort().reverse();
+  const ctSel=document.getElementById('f-ct'); const cv=ctSel.value;
+  ctSel.innerHTML='<option value="">Tất cả công trình</option>'+cts.map(c=>`<option ${c===cv?'selected':''} value="${x(c)}">${x(c)}</option>`).join('');
+  const lSel=document.getElementById('f-loai'); const lv=lSel.value;
+  lSel.innerHTML='<option value="">Tất cả loại</option>'+loais.map(l=>`<option ${l===lv?'selected':''} value="${x(l)}">${x(l)}</option>`).join('');
+  const mSel=document.getElementById('f-month'); const mv=mSel.value;
+  mSel.innerHTML='<option value="">Tất cả tháng</option>'+months.map(m=>`<option ${m===mv?'selected':''} value="${m}">${m}</option>`).join('');
+}
+
+function filterAndRender() {
+  curPage=1;
+  const q=document.getElementById('search').value.toLowerCase();
+  const fCt=document.getElementById('f-ct').value;
+  const fLoai=document.getElementById('f-loai').value;
+  const fMonth=document.getElementById('f-month').value;
+  filteredInvs = invoices.filter(inv => {
+    if(fCt && inv.congtrinh!==fCt) return false;
+    if(fLoai && inv.loai!==fLoai) return false;
+    if(fMonth && !inv.ngay.startsWith(fMonth)) return false;
+    if(q) { const t=[inv.ngay,inv.congtrinh,inv.loai,inv.nguoi,inv.sohd,inv.nd].join(' ').toLowerCase(); if(!t.includes(q)) return false; }
+    return true;
+  });
+  renderTable();
+}
+
+function renderTable() {
+  const tbody=document.getElementById('all-tbody');
+  const start=(curPage-1)*PG;
+  const paged=filteredInvs.slice(start,start+PG);
+  const sumTT=filteredInvs.reduce((s,i)=>s+i.tien,0);
+  if(!paged.length) {
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="10">Không có hóa đơn nào</td></tr>`;
+    document.getElementById('pagination').innerHTML=''; return;
+  }
+  tbody.innerHTML = paged.map(inv=>`<tr>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${inv.ngay}</td>
+    <td style="font-weight:600;font-size:12px;max-width:220px">${x(inv.congtrinh)}</td>
+    <td><span class="tag tag-gold">${x(inv.loai)}</span></td>
+    <td style="color:var(--ink2)">${x(inv.nguoi||'—')}</td>
+    <td style="color:var(--ink2)">${x(inv.ncc||'—')}</td>
+    <td style="color:var(--ink2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(inv.nd)}">${x(inv.nd||'—')}</td>
+    <td class="amount-td">${numFmt(inv.tien||0)}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
+  </tr>`).join('');
+
+  const tp=Math.ceil(filteredInvs.length/PG);
+  let pag=`<span>${filteredInvs.length} hóa đơn · Tổng: <strong style="color:var(--gold);font-family:'IBM Plex Mono',monospace">${fmtS(sumTT)}</strong></span>`;
+  if(tp>1) {
+    pag+='<div class="page-btns">';
+    for(let p=1;p<=Math.min(tp,10);p++) pag+=`<button class="page-btn ${p===curPage?'active':''}" onclick="goTo(${p})">${p}</button>`;
+    if(tp>10) pag+=`<span style="padding:4px 6px;color:var(--ink3)">...${tp}</span>`;
+    pag+='</div>';
+  }
+  document.getElementById('pagination').innerHTML=pag;
+}
+
+function goTo(p) { curPage=p; renderTable(); }
+
+function delInvoice(id) {
+  if(!confirm('Xóa hóa đơn này?')) return;
+  invoices=invoices.filter(i=>String(i.id)!==String(id));
+  save('inv_v3',invoices); updateTop(); buildFilters(); filterAndRender();
+  toast('Đã xóa hóa đơn');
+}
+
+// ══════════════════════════════
+//  CT PAGE
+// ══════════════════════════════
+function renderCtPage() {
+  const grid=document.getElementById('ct-grid');
+  const map={};
+  invoices.forEach(inv=>{
+    if(!map[inv.congtrinh]) map[inv.congtrinh]={total:0,count:0,byLoai:{}};
+    map[inv.congtrinh].total+=inv.tien||inv.thanhtien||0; map[inv.congtrinh].count++;
+    map[inv.congtrinh].byLoai[inv.loai]=(map[inv.congtrinh].byLoai[inv.loai]||0)+(inv.tien||inv.thanhtien||0);
+  });
+  const sortBy=(document.getElementById('ct-sort')?.value)||'value';
+  const entries=Object.entries(map).sort((a,b)=>
+    sortBy==='name' ? a[0].localeCompare(b[0],'vi') : b[1].total-a[1].total
+  );
+  if(!entries.length){grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--ink3);font-size:14px">Chưa có dữ liệu</div>`;return;}
+  grid.innerHTML=entries.map(([ct,d])=>{
+    const rows=Object.entries(d.byLoai).sort((a,b)=>b[1]-a[1]);
+    return `<div class="ct-card" onclick="showCtModal(${JSON.stringify(ct)})">
+      <div class="ct-card-head">
+        <div><div class="ct-card-name">${x(ct)}</div><div class="ct-card-count">${d.count} hóa đơn</div></div>
+        <div class="ct-card-total">${fmtS(d.total)}</div>
+      </div>
+      <div class="ct-card-body">
+        ${rows.slice(0,6).map(([l,v])=>`<div class="ct-loai-row"><span class="ct-loai-name">${x(l)}</span><span class="ct-loai-val">${fmtS(v)}</span></div>`).join('')}
+        ${rows.length>6?`<div style="font-size:11px;color:var(--ink3);text-align:right;padding-top:6px">+${rows.length-6} loại khác...</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showCtModal(ctName) {
+  const invs=invoices.filter(i=>i.congtrinh===ctName);
+  document.getElementById('modal-title').textContent='🏗️ '+ctName;
+  const byLoai={};
+  invs.forEach(inv=>{ if(!byLoai[inv.loai])byLoai[inv.loai]=[]; byLoai[inv.loai].push(inv); });
+  const total=invs.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+  let html=`<div style="display:flex;gap:12px;margin-bottom:18px">
+    <div style="flex:1;background:var(--bg);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tổng HĐ</div><div style="font-size:22px;font-weight:700">${invs.length}</div></div>
+    <div style="flex:2;background:var(--green-bg);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tổng Chi Phí</div><div style="font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--green)">${fmtM(total)}</div></div>
+  </div>`;
+  Object.entries(byLoai).forEach(([loai,invList])=>{
+    const lt=invList.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+    html+=`<div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--gold-bg);border-radius:6px;margin-bottom:6px">
+        <span class="tag tag-gold">${x(loai)}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold)">${fmtM(lt)}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>${['Ngày','Người TH','Nội Dung','Thành Tiền'].map((h,i)=>`<th style="padding:5px 8px;background:#f3f1ec;font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;text-align:${i===3?'right':'left'}">${h}</th>`).join('')}</tr></thead>
+        <tbody>${invList.map(i=>`<tr style="border-bottom:1px solid var(--line)">
+          <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;color:var(--ink2)">${i.ngay}</td>
+          <td style="padding:6px 8px;color:var(--ink2)">${x(i.nguoi||'—')}</td>
+          <td style="padding:6px 8px;color:var(--ink2)">${x(i.nd||'—')}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green)">${numFmt(i.tien||i.thanhtien||0)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  });
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('ct-modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('ct-modal').classList.remove('open'); }
+document.getElementById('ct-modal').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeModal(); });
+
+// ══════════════════════════════
+//  SETTINGS
+// ══════════════════════════════
+function renderSettings() {
+  const grid=document.getElementById('dm-grid');
+  grid.innerHTML='';
+  CATS.forEach(cfg=>{
+    const list=cats[cfg.id];
+    const card=document.createElement('div');
+    card.className='settings-card';
+    card.innerHTML=`
+      <div class="settings-card-head">
+        <div class="settings-card-title">${cfg.title} <span style="font-size:11px;font-weight:400;color:var(--ink3)">(${list.length})</span></div>
+      </div>
+      <div class="settings-list" id="sl-${cfg.id}">
+        ${list.map((item,idx)=>renderItem(cfg.id,item,idx)).join('')}
+      </div>
+      <div class="settings-add">
+        <input type="text" id="sa-${cfg.id}" placeholder="Thêm mới..." onkeydown="if(event.key==='Enter')addItem('${cfg.id}')">
+        <button class="btn btn-gold btn-sm" onclick="addItem('${cfg.id}')">+ Thêm</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function renderItem(catId,item,idx) {
+  return `<div class="settings-item" id="si-${catId}-${idx}">
+    <span class="s-name" id="sn-${catId}-${idx}" ondblclick="startEdit('${catId}',${idx})">${x(item)}</span>
+    <input class="s-edit-input" id="se-${catId}-${idx}" value="${x(item)}"
+      onblur="finishEdit('${catId}',${idx})"
+      onkeydown="if(event.key==='Enter')finishEdit('${catId}',${idx});if(event.key==='Escape')cancelEdit('${catId}',${idx})">
+    <button class="btn btn-outline btn-sm btn-icon" onclick="startEdit('${catId}',${idx})" title="Sửa tên">✏️</button>
+    <button class="btn btn-danger btn-sm btn-icon" onclick="delItem('${catId}',${idx})" title="Xóa">✕</button>
+  </div>`;
+}
+
+function startEdit(catId,idx) {
+  document.getElementById(`sn-${catId}-${idx}`).classList.add('off');
+  const e=document.getElementById(`se-${catId}-${idx}`); e.classList.add('on'); e.focus(); e.select();
+}
+function cancelEdit(catId,idx) {
+  document.getElementById(`se-${catId}-${idx}`).classList.remove('on');
+  document.getElementById(`sn-${catId}-${idx}`).classList.remove('off');
+}
+function finishEdit(catId,idx) {
+  const inp=document.getElementById(`se-${catId}-${idx}`);
+  const newVal=inp.value.trim();
+  if(!newVal){cancelEdit(catId,idx);return;}
+  const old=cats[catId][idx];
+  cats[catId][idx]=newVal;
+  // update invoices
+  const cfg=CATS.find(c=>c.id===catId);
+  if(cfg&&cfg.refField) {
+    invoices.forEach(inv=>{ if(inv[cfg.refField]===old) inv[cfg.refField]=newVal; });
+    // also update ung records tp field when nguoiTH or nhaCungCap renamed
+    if(catId==='nguoiTH'||catId==='nhaCungCap') ungRecords.forEach(r=>{ if(r.tp===old) r.tp=newVal; });
+    if(catId==='congTrinh') ungRecords.forEach(r=>{ if(r.congtrinh===old) r.congtrinh=newVal; });
+  }
+  saveCats(catId); save('inv_v3',invoices); save('ung_v1',ungRecords);
+  renderSettings(); updateTop();
+  toast('✅ Đã cập nhật "'+newVal+'"','success');
+}
+function addItem(catId) {
+  const inp=document.getElementById(`sa-${catId}`);
+  const val=inp.value.trim();
+  if(!val) return;
+  if(cats[catId].includes(val)){toast('Mục này đã tồn tại!','error');return;}
+  cats[catId].push(val); saveCats(catId); inp.value='';
+  renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
+  toast(`✅ Đã thêm "${val}"`,'success');
+}
+function delItem(catId,idx) {
+  const item=cats[catId][idx];
+  if(!confirm(`Xóa "${item}"?\nHóa đơn đã lưu không bị ảnh hưởng.`)) return;
+  cats[catId].splice(idx,1); saveCats(catId);
+  renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
+  toast(`Đã xóa "${item}"`);
+}
+function saveCats(catId) {
+  const cfg=CATS.find(c=>c.id===catId);
+  if(cfg) save(cfg.sk, cats[catId]);
+}
+
+function rebuildEntrySelects() {
+  document.querySelectorAll('#entry-tbody [data-f="ct"]').forEach(sel=>{
+    if(sel.tagName==='SELECT'){
+      const cur=sel.value;
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+    }
+  });
+  document.querySelectorAll('#entry-tbody [data-f="loai"]').forEach(sel=>{
+    if(sel.tagName==='SELECT'){
+      const cur=sel.value;
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.loaiChiPhi.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+    }
+  });
+  // rebuild datalists for nguoi and ncc
+  document.querySelectorAll('#entry-tbody [data-f="nguoi"]').forEach(inp=>{
+    const dl=document.getElementById(inp.getAttribute('list'));
+    if(dl) dl.innerHTML=cats.nguoiTH.map(v=>`<option value="${x(v)}">`).join('');
+  });
+  document.querySelectorAll('#entry-tbody [data-f="ncc"]').forEach(inp=>{
+    const dl=document.getElementById(inp.getAttribute('list'));
+    if(dl) dl.innerHTML=cats.nhaCungCap.map(v=>`<option value="${x(v)}">`).join('');
+  });
+}
+
+// ══════════════════════════════
+//  TIỀN ỨNG - ENTRY TABLE
+// ══════════════════════════════
+let ungRecords = load('ung_v1', []);
+let filteredUng = [];
+let ungPage = 1;
+
+function initUngTable(n=8) {
+  document.getElementById('ung-tbody').innerHTML='';
+  for(let i=0;i<n;i++) addUngRow();
+  calcUngSummary();
+}
+
+function initUngTableIfEmpty() {
+  if(document.getElementById('ung-tbody').children.length===0) initUngTable(8);
+}
+
+function addUngRows(n) { for(let i=0;i<n;i++) addUngRow(); }
+
+function addUngRow(d={}) {
+  const tbody = document.getElementById('ung-tbody');
+  const num = tbody.children.length + 1;
+  const dlTp  = 'dlTP'  + num + Date.now();
+  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===(d.congtrinh||'')?'selected':''}>${x(v)}</option>`).join('');
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="row-num">${num}</td>
+    <td>
+      <input class="cell-input" data-f="tp" list="${dlTp}" value="${x(d.tp||'')}" placeholder="Nhập hoặc chọn...">
+      <datalist id="${dlTp}">${[...cats.nguoiTH,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('')}</datalist>
+    </td>
+    <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
+    <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}"></td>
+    <td><input class="cell-input" data-f="nd" value="${x(d.nd||'')}" placeholder="Nội dung..."></td>
+    <td><button class="del-btn" onclick="delUngRow(this)">✕</button></td>
+  `;
+
+  const tienInput = tr.querySelector('[data-f="tien"]');
+  tienInput.addEventListener('input', function() {
+    const raw = this.value.replace(/[.,]/g,'');
+    this.dataset.raw = raw;
+    if(raw) this.value = numFmt(parseInt(raw,10)||0);
+    calcUngSummary();
+  });
+  tienInput.addEventListener('focus', function() { this.value = this.dataset.raw || ''; });
+  tienInput.addEventListener('blur',  function() {
+    const raw = parseInt(this.dataset.raw||'0',10)||0;
+    this.value = raw ? numFmt(raw) : '';
+  });
+
+  tr.querySelectorAll('input,select').forEach(el => {
+    if(el.dataset.f!=='tien') { el.addEventListener('input', calcUngSummary); el.addEventListener('change', calcUngSummary); }
+  });
+  tbody.appendChild(tr);
+}
+
+function delUngRow(btn) { btn.closest('tr').remove(); renumberUng(); calcUngSummary(); }
+
+function renumberUng() {
+  document.querySelectorAll('#ung-tbody tr').forEach((tr,i) => { tr.querySelector('.row-num').textContent = i+1; });
+}
+
+function calcUngSummary() {
+  let cnt=0, total=0;
+  document.querySelectorAll('#ung-tbody tr').forEach(tr => {
+    const tp = tr.querySelector('[data-f="tp"]')?.value||'';
+    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    if(tp||tien>0) { cnt++; total+=tien; }
+  });
+  document.getElementById('ung-row-count').textContent=cnt;
+  document.getElementById('ung-entry-total').textContent=fmtM(total);
+}
+
+function clearUngTable() {
+  if(!confirm('Xóa toàn bộ bảng nhập tiền ứng?')) return;
+  initUngTable(8);
+}
+
+function saveAllUngRows() {
+  const date = document.getElementById('ung-date').value;
+  if(!date) { toast('Vui lòng chọn ngày!','error'); return; }
+  let saved=0, errRow=0;
+  document.querySelectorAll('#ung-tbody tr').forEach(tr => {
+    const tp = (tr.querySelector('[data-f="tp"]')?.value||'').trim();
+    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    if(!tp&&!tien) return;
+    if(!tp) { errRow++; tr.style.background='#fdecea'; return; }
+    tr.style.background='';
+    ungRecords.unshift({
+      id: Date.now()+Math.random(), ngay:date,
+      tp,
+      congtrinh:(tr.querySelector('[data-f="ct"]')?.value||'').trim(),
+      tien,
+      nd:(tr.querySelector('[data-f="nd"]')?.value||'').trim()
+    });
+    saved++;
+  });
+  if(errRow>0) { toast(`${errRow} dòng thiếu Thầu Phụ/NCC (đánh dấu đỏ)!`,'error'); return; }
+  if(saved===0) { toast('Không có dòng hợp lệ!','error'); return; }
+  save('ung_v1', ungRecords);
+  toast(`✅ Đã lưu ${saved} tiền ứng!`,'success');
+  initUngTable(8);
+  document.getElementById('ung-date').value = today();
+}
+
+// ══════════════════════════════
+//  TIỀN ỨNG - ALL PAGE
+// ══════════════════════════════
+function buildUngFilters() {
+  const tps    = [...new Set(ungRecords.map(i=>i.tp))].filter(Boolean).sort();
+  const cts    = [...new Set(ungRecords.map(i=>i.congtrinh))].filter(Boolean).sort();
+  const months = [...new Set(ungRecords.map(i=>i.ngay.slice(0,7)))].filter(Boolean).sort().reverse();
+
+  const tpSel=document.getElementById('uf-tp'); const tv=tpSel.value;
+  tpSel.innerHTML='<option value="">Tất cả TP/NCC</option>'+tps.map(v=>`<option ${v===tv?'selected':''} value="${x(v)}">${x(v)}</option>`).join('');
+  const ctSel=document.getElementById('uf-ct'); const cv=ctSel.value;
+  ctSel.innerHTML='<option value="">Tất cả công trình</option>'+cts.map(v=>`<option ${v===cv?'selected':''} value="${x(v)}">${x(v)}</option>`).join('');
+  const mSel=document.getElementById('uf-month'); const mv=mSel.value;
+  mSel.innerHTML='<option value="">Tất cả tháng</option>'+months.map(m=>`<option ${m===mv?'selected':''} value="${m}">${m}</option>`).join('');
+}
+
+function filterAndRenderUng() {
+  ungPage=1;
+  const q=document.getElementById('ung-search').value.toLowerCase();
+  const fTp=document.getElementById('uf-tp').value;
+  const fCt=document.getElementById('uf-ct').value;
+  const fMonth=document.getElementById('uf-month').value;
+  filteredUng = ungRecords.filter(r => {
+    if(fTp && r.tp!==fTp) return false;
+    if(fCt && r.congtrinh!==fCt) return false;
+    if(fMonth && !r.ngay.startsWith(fMonth)) return false;
+    if(q) { const t=[r.ngay,r.tp,r.congtrinh,r.nd].join(' ').toLowerCase(); if(!t.includes(q)) return false; }
+    return true;
+  });
+  renderUngTable();
+}
+
+function renderUngTable() {
+  const tbody=document.getElementById('ung-all-tbody');
+  const start=(ungPage-1)*PG;
+  const paged=filteredUng.slice(start,start+PG);
+  const sumTien=filteredUng.reduce((s,r)=>s+r.tien,0);
+
+  if(!paged.length) {
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Không có dữ liệu tiền ứng nào</td></tr>`;
+    document.getElementById('ung-pagination').innerHTML=''; return;
+  }
+  tbody.innerHTML = paged.map(r=>`<tr>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${r.ngay}</td>
+    <td style="font-weight:600;font-size:12px">${x(r.tp)}</td>
+    <td style="color:var(--ink2)">${x(r.congtrinh||'—')}</td>
+    <td style="color:var(--ink2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(r.nd)}">${x(r.nd||'—')}</td>
+    <td class="amount-td" style="color:var(--blue)">${numFmt(r.tien||0)}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="delUngRecord('${r.id}')">✕</button></td>
+  </tr>`).join('');
+
+  const tp2=Math.ceil(filteredUng.length/PG);
+  let pag=`<span>${filteredUng.length} bản ghi · Tổng tiền ứng: <strong style="color:var(--blue);font-family:'IBM Plex Mono',monospace">${fmtS(sumTien)}</strong></span>`;
+  if(tp2>1) {
+    pag+='<div class="page-btns">';
+    for(let p=1;p<=Math.min(tp2,10);p++) pag+=`<button class="page-btn ${p===ungPage?'active':''}" onclick="goUngTo(${p})">${p}</button>`;
+    pag+='</div>';
+  }
+  document.getElementById('ung-pagination').innerHTML=pag;
+}
+
+function goUngTo(p) { ungPage=p; renderUngTable(); }
+
+function delUngRecord(id) {
+  if(!confirm('Xóa bản ghi tiền ứng này?')) return;
+  ungRecords=ungRecords.filter(r=>String(r.id)!==String(id));
+  save('ung_v1',ungRecords); buildUngFilters(); filterAndRenderUng();
+  toast('Đã xóa bản ghi');
+}
+
+function rebuildUngSelects() {
+  document.querySelectorAll('#ung-tbody [data-f="ct"]').forEach(sel=>{
+    if(sel.tagName==='SELECT'){
+      const cur=sel.value;
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+    }
+  });
+  document.querySelectorAll('#ung-tbody [data-f="tp"]').forEach(inp=>{
+    const dl=document.getElementById(inp.getAttribute('list'));
+    if(dl) dl.innerHTML=[...cats.nguoiTH,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('');
+  });
+}
+
+function exportUngEntryCSV() {
+  const rows=[['Thầu Phụ / Nhà CC','Công Trình','Số Tiền Ứng','Nội Dung']];
+  document.querySelectorAll('#ung-tbody tr').forEach(tr=>{
+    const tp=tr.querySelector('[data-f="tp"]')?.value||'';
+    if(!tp) return;
+    rows.push([tp,tr.querySelector('[data-f="ct"]')?.value||'',parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0,tr.querySelector('[data-f="nd"]')?.value||'']);
+  });
+  dlCSV(rows,'nhap_tien_ung_'+today()+'.csv');
+}
+
+function exportUngAllCSV() {
+  const src=filteredUng.length>0?filteredUng:ungRecords;
+  const rows=[['Ngày','Thầu Phụ / Nhà CC','Công Trình','Nội Dung','Số Tiền Ứng']];
+  src.forEach(r=>rows.push([r.ngay,r.tp,r.congtrinh||'',r.nd||'',r.tien]));
+  dlCSV(rows,'tien_ung_'+today()+'.csv');
+}
+
+// ══════════════════════════════
+//  EXPORT
+// ══════════════════════════════
+function exportEntryCSV() {
+  const rows=[['Loại Chi Phí','Công Trình','Người TH','Nhà Cung Cấp','Nội Dung','Số Tiền']];
+  document.querySelectorAll('#entry-tbody tr').forEach(tr=>{
+    const loai=tr.querySelector('[data-f="loai"]')?.value||'';
+    const ct=tr.querySelector('[data-f="ct"]')?.value||'';
+    if(!loai&&!ct) return;
+    const tien=parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    rows.push([loai,ct,tr.querySelector('[data-f="nguoi"]')?.value||'',tr.querySelector('[data-f="ncc"]')?.value||'',tr.querySelector('[data-f="nd"]')?.value||'',tien]);
+  });
+  dlCSV(rows,'nhap_'+today()+'.csv');
+}
+function exportAllCSV() {
+  const src=filteredInvs.length>0?filteredInvs:invoices;
+  const rows=[['Ngày','Công Trình','Loại Chi Phí','Người TH','Nhà Cung Cấp','Nội Dung','Số Tiền']];
+  src.forEach(i=>rows.push([i.ngay,i.congtrinh,i.loai,i.nguoi,i.ncc||'',i.nd,i.tien||i.thanhtien||0]));
+  dlCSV(rows,'hoa_don_'+today()+'.csv');
+}
+function dlCSV(rows,name) {
+  const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=name; a.click();
+}
+
+// ══════════════════════════════
+//  HELPERS
+// ══════════════════════════════
+function updateTop() {
+  document.getElementById('top-cnt').textContent=invoices.length;
+  document.getElementById('top-total').textContent=fmtS(invoices.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0));
+}
+function numFmt(n){ if(!n&&n!==0)return''; return parseInt(n,10).toLocaleString('vi-VN'); }
+function fmtM(n){ if(!n)return'0 đ'; return parseInt(n).toLocaleString('vi-VN')+' đ'; }
+function fmtS(n){ if(!n)return'0'; if(n>=1e9)return(n/1e9).toFixed(3).replace(/\.?0+$/,'')+' tỷ'; if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr'; if(n>=1e3)return(n/1e3).toFixed(0)+'k'; return n.toLocaleString('vi-VN'); }
+function x(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+(type?type:''); t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),2800); }
+
+
+// ══════════════════════════════════════════════════════════════════
+//  SỔ CHẤM CÔNG v3
+//  worker: { name, luong, d:[CN,T2,T3,T4,T5,T6,T7], phucap, hdmuale, nd }
+// ══════════════════════════════════════════════════════════════════
+let ccData   = load('cc_v2', []);
+let ccOffset = 0;
+let ccHistPage = 1, ccTltPage = 1;
+const CC_PG = 80;
+const CC_DAY_LABELS   = ['CN','T2','T3','T4','T5','T6','T7'];
+const CC_DATE_OFFSETS = [0,1,2,3,4,5,6]; // offset from Sunday (week starts Sunday)
+
+// ─── date helpers ───────────────────────────────────────────────
+// Tuần: CN (Sun) → T7 (Sat). iso date string là YYYY-MM-DD.
+// Tránh timezone bug: dùng local date parts, không dùng toISOString cho date-only
+
+function isoFromParts(y,m,d){ return y+'-'+(m<10?'0':'')+m+'-'+(d<10?'0':'')+d; }
+
+// Trả về iso string của CN (Sunday) cho tuần cách tuần hiện tại offset tuần
+function ccSundayISO(offset=0){
+  const now = new Date();
+  const y=now.getFullYear(), mo=now.getMonth(), d=now.getDate();
+  const jsDay=now.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  // Tìm Sunday của tuần hiện tại
+  const sunD = new Date(y, mo, d - jsDay + offset*7);
+  return isoFromParts(sunD.getFullYear(), sunD.getMonth()+1, sunD.getDate());
+}
+
+// Trả về iso string của T7 (Saturday) = CN + 6
+function ccSaturdayISO(sundayISO){
+  const [y,m,d]=sundayISO.split('-').map(Number);
+  const sat=new Date(y,m-1,d+6);
+  return isoFromParts(sat.getFullYear(),sat.getMonth()+1,sat.getDate());
+}
+
+// Snap bất kỳ ngày → CN của tuần chứa ngày đó
+function snapToSunday(dateISO){
+  const [y,m,d]=dateISO.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const jsDay=dt.getDay(); // 0=Sun
+  const sun=new Date(y,m-1,d-jsDay);
+  return isoFromParts(sun.getFullYear(),sun.getMonth()+1,sun.getDate());
+}
+
+function viShort(ds){
+  const [y,m,d]=ds.split('-').map(Number);
+  return (d<10?'0':'')+d+'/'+(m<10?'0':'')+m;
+}
+function weekLabel(sundayISO){
+  const satISO=ccSaturdayISO(sundayISO);
+  const y=sundayISO.split('-')[0];
+  return viShort(sundayISO)+'–'+viShort(satISO)+'/'+y;
+}
+
+// iso() vẫn giữ để dùng chỗ khác nếu cần
+function iso(d){ return d.toISOString().split('T')[0]; }
+
+// ─── all worker names for autocomplete ──────────────────────────
+function ccAllNames(){
+  const s=new Set();
+  ccData.forEach(w=>w.workers.forEach(wk=>{ if(wk.name) s.add(wk.name); }));
+  cats.nguoiTH.forEach(n=>s.add(n));
+  return [...s].sort();
+}
+
+// build/update the shared datalist for name autocomplete
+function rebuildCCNameList(){
+  let dl=document.getElementById('cc-name-dl');
+  if(!dl){ dl=document.createElement('datalist'); dl.id='cc-name-dl'; document.body.appendChild(dl); }
+  dl.innerHTML=ccAllNames().map(n=>`<option value="${x(n)}">`).join('');
+}
+
+// ─── init ────────────────────────────────────────────────────────
+function initCC(){
+  ccOffset=0;
+  ccGoToWeek(0);
+  populateCCCtSel();
+  rebuildCCNameList();
+}
+
+function ccGoToWeek(off){
+  ccOffset=off;
+  const sunISO=ccSundayISO(off);
+  const satISO=ccSaturdayISO(sunISO);
+  document.getElementById('cc-from').value=sunISO;
+  document.getElementById('cc-to').value=satISO;
+  document.getElementById('cc-week-label').textContent='Tuần: '+weekLabel(sunISO);
+  loadCCWeekForm();
+}
+function ccPrevWeek(){ ccGoToWeek(ccOffset-1); }
+function ccNextWeek(){ ccGoToWeek(ccOffset+1); }
+
+function onCCFromChange(){
+  const raw=document.getElementById('cc-from').value; if(!raw) return;
+  // Snap bất kỳ ngày được chọn về CN của tuần đó
+  const sunISO=snapToSunday(raw);
+  const satISO=ccSaturdayISO(sunISO);
+  document.getElementById('cc-from').value=sunISO;
+  document.getElementById('cc-to').value=satISO;
+  document.getElementById('cc-week-label').textContent='Tuần: '+weekLabel(sunISO);
+  // Tính lại offset so với tuần hiện tại
+  const thisSun=ccSundayISO(0);
+  const [ty,tm,td]=thisSun.split('-').map(Number);
+  const [fy,fm,fd]=sunISO.split('-').map(Number);
+  const diffMs=new Date(fy,fm-1,fd)-new Date(ty,tm-1,td);
+  ccOffset=Math.round(diffMs/(7*86400000));
+  loadCCWeekForm();
+}
+
+function loadCCWeekForm(){
+  const f=document.getElementById('cc-from').value;
+  const ct=document.getElementById('cc-ct-sel').value;
+  // Try to find saved data for this week+ct
+  const rec=ccData.find(w=>w.fromDate===f&&w.ct===ct);
+  if(rec){
+    buildCCTable(rec.workers);
+  } else if(ct){
+    // Auto-copy workers from most recent week of same CT (names+luong only, clear days/extra)
+    const prev=ccData.filter(w=>w.ct===ct&&w.fromDate<f).sort((a,b)=>b.fromDate.localeCompare(a.fromDate))[0];
+    if(prev){
+      const stub=prev.workers.map(wk=>({name:wk.name,luong:wk.luong,d:[0,0,0,0,0,0,0],phucap:0,hdmuale:0,nd:''}));
+      buildCCTable(stub);
+    } else {
+      buildCCTable([]);
+    }
+  } else {
+    buildCCTable([]);
+  }
+}
+
+// ─── build table ─────────────────────────────────────────────────
+function buildCCTable(workers){
+  const fromStr=document.getElementById('cc-from').value;
+  const thead=document.getElementById('cc-thead-row');
+  const dates=CC_DATE_OFFSETS.map(off=>{
+    if(!fromStr) return '';
+    const d=new Date(fromStr+'T00:00:00'); d.setDate(d.getDate()+off);
+    return d.getDate()+'/'+(d.getMonth()+1);
+  });
+  const BG='background:#eeece7;color:var(--ink)';
+  thead.innerHTML=`
+    <th class="col-num">#</th>
+    <th style="min-width:130px">Tên Công Nhân</th>
+    ${CC_DAY_LABELS.map((l,i)=>`<th class="cc-day-header">${l}<br><span style="font-size:9px;font-weight:400;color:var(--ink2)">${dates[i]}</span></th>`).join('')}
+    <th style="width:46px;text-align:center;${BG}">TC</th>
+    <th style="width:110px;text-align:right;${BG}">Lương/Ngày</th>
+    <th style="width:110px;text-align:right;${BG}">Tổng Lương</th>
+    <th style="width:100px;text-align:right;${BG}">Phụ Cấp</th>
+    <th style="width:110px;text-align:right;${BG}">HĐ Mua Lẻ</th>
+    <th style="min-width:140px;${BG}">Nội Dung</th>
+    <th style="width:120px;text-align:right;background:#c8870a;color:#fff;font-weight:700">Tổng Cộng</th>
+    <th class="col-del" style="${BG}"></th>
+  `;
+  const tbody=document.getElementById('cc-tbody');
+  tbody.innerHTML='';
+  const minRows=Math.max((workers||[]).length,8);
+  for(let i=0;i<minRows;i++) addCCRow((workers||[])[i]||null);
+  updateCCSumRow();
+}
+
+function addCCWorker(){
+  const tbody=document.getElementById('cc-tbody');
+  const sumRow=tbody.querySelector('.cc-sum-row');
+  const nr=buildCCRow(null, tbody.querySelectorAll('tr:not(.cc-sum-row)').length+1);
+  tbody.insertBefore(nr,sumRow||null);
+  renumberCC(); updateCCSumRow();
+  nr.querySelector('.cc-name-input')?.focus();
+}
+
+function addCCRow(w){
+  const tbody=document.getElementById('cc-tbody');
+  const num=tbody.querySelectorAll('tr:not(.cc-sum-row)').length+1;
+  tbody.appendChild(buildCCRow(w,num));
+}
+
+function buildCCRow(w,num){
+  const tr=document.createElement('tr');
+  const ds=w?w.d:[0,0,0,0,0,0,0];
+  const luong=w?(w.luong||0):0;
+  const phucap=w?(w.phucap||0):0;
+  const hdml=w?(w.hdmuale||0):0;
+
+  tr.innerHTML=`
+    <td class="row-num">${num}</td>
+    <td style="padding:0">
+      <input class="cc-name-input" data-cc="name" list="cc-name-dl"
+        value="${x(w?w.name||'':''||'')}" placeholder="Tên..."
+        oninput="onCCNameInput(this)">
+    </td>
+    ${ds.map((v,i)=>`<td style="padding:0"><input class="cc-day-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
+      data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off"
+      oninput="onCCDayKey(this)"></td>`).join('')}
+    <td class="cc-tc-cell" data-cc="tc">0</td>
+    <td style="padding:0"><input class="cc-wage-input" data-cc="luong" data-raw="${luong||''}"
+      value="${luong?numFmt(luong):''}" placeholder="0" oninput="onCCWageKey(this)"></td>
+    <td class="cc-total-cell" data-cc="total">—</td>
+    <td style="padding:0"><input class="cc-wage-input" data-cc="phucap" data-raw="${phucap||''}"
+      value="${phucap?numFmt(phucap):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
+    <td style="padding:0"><input class="cc-wage-input" data-cc="hdml" data-raw="${hdml||''}"
+      value="${hdml?numFmt(hdml):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
+    <td style="padding:0"><input class="cc-name-input" data-cc="nd"
+      value="${x(w?w.nd||'':''||'')}" placeholder="Nội dung..."
+      style="font-size:11px" oninput="updateCCSumRow()"></td>
+    <td class="cc-total-cell" data-cc="tongcong" style="color:var(--gold);font-size:13px">—</td>
+    <td><button class="del-btn" onclick="delCCRow(this)">✕</button></td>
+  `;
+  tr.querySelectorAll('[data-cc^="d"]').forEach(el=>el.addEventListener('input',()=>{ onCCDayKey(el); updateCCSumRow(); }));
+  tr.querySelector('[data-cc="luong"]').addEventListener('input',function(){ onCCWageKey(this); updateCCSumRow(); });
+  tr.querySelector('[data-cc="phucap"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
+  tr.querySelector('[data-cc="hdml"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
+  tr.querySelector('[data-cc="name"]').addEventListener('input',updateCCSumRow);
+  tr.querySelector('[data-cc="nd"]').addEventListener('input',updateCCSumRow);
+  calcCCRow(tr);
+  return tr;
+}
+
+function onCCNameInput(inp){
+  // Check duplicate warning (only warn if another row has same non-empty name)
+  const name=inp.value.trim();
+  if(!name) return;
+  let count=0;
+  document.querySelectorAll('#cc-tbody [data-cc="name"]').forEach(el=>{ if(el.value.trim()===name) count++; });
+  if(count>1){
+    inp.style.boxShadow='inset 0 0 0 2px var(--red)';
+    inp.title='⚠️ Tên trùng! Vui lòng đổi tên để phân biệt.';
+    toast('⚠️ Tên "'+name+'" bị trùng – hãy đổi tên để tránh nhầm lẫn!','error');
+  } else {
+    inp.style.boxShadow='';
+    inp.title='';
+  }
+}
+
+function onCCDayKey(inp){
+  const n=parseFloat(inp.value.replace(',','.'))||0;
+  inp.classList.toggle('has-val',n===1);
+  inp.classList.toggle('half-val',n>0&&n<1);
+  calcCCRow(inp.closest('tr'));
+}
+function onCCWageKey(inp){
+  const raw=inp.value.replace(/\./g,'').replace(/,/g,'');
+  inp.dataset.raw=raw;
+  if(raw) inp.value=numFmt(parseInt(raw)||0);
+  calcCCRow(inp.closest('tr'));
+}
+function onCCMoneyKey(inp){
+  const raw=inp.value.replace(/\./g,'').replace(/,/g,'');
+  inp.dataset.raw=raw;
+  if(raw) inp.value=numFmt(parseInt(raw)||0);
+  calcCCRow(inp.closest('tr'));
+}
+
+function calcCCRow(tr){
+  let tc=0;
+  for(let i=0;i<7;i++) tc+=parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0;
+  tr.querySelector('[data-cc="tc"]').textContent=tc||0;
+  const luong=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
+  const total=tc*luong;
+  const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
+  const hdml  =parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+  const tongcong=total+phucap+hdml;
+  const totCell=tr.querySelector('[data-cc="total"]');
+  totCell.textContent=total>0?numFmt(total):'—';
+  totCell.style.color=total>0?'var(--green)':'var(--ink3)';
+  const tcCell=tr.querySelector('[data-cc="tongcong"]');
+  tcCell.textContent=tongcong>0?numFmt(tongcong):'—';
+  tcCell.style.color=tongcong>0?'var(--gold)':'var(--ink3)';
+}
+
+function delCCRow(btn){ btn.closest('tr').remove(); renumberCC(); updateCCSumRow(); }
+function renumberCC(){
+  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach((tr,i)=>tr.querySelector('.row-num').textContent=i+1);
+}
+
+function updateCCSumRow(){
+  const rows=document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)');
+  const dayT=new Array(7).fill(0);
+  let tc=0,totalLuong=0,totalPC=0,totalHD=0,totalTC=0;
+  rows.forEach(tr=>{
+    for(let i=0;i<7;i++) dayT[i]+=parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0;
+    const t=parseFloat(tr.querySelector('[data-cc="tc"]')?.textContent||0)||0;
+    tc+=t;
+    const l=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
+    const pc=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
+    const hd=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    totalLuong+=t*l; totalPC+=pc; totalHD+=hd;
+    totalTC+=t*l+pc+hd;
+  });
+  let sumRow=document.querySelector('#cc-tbody .cc-sum-row');
+  if(!sumRow){ sumRow=document.createElement('tr'); sumRow.className='cc-sum-row'; document.getElementById('cc-tbody').appendChild(sumRow); }
+  const mono="font-family:'IBM Plex Mono',monospace;font-weight:700";
+  sumRow.innerHTML=`
+    <td colspan="2" style="padding:7px 12px;font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px">TỔNG</td>
+    ${dayT.map(v=>`<td style="text-align:center;${mono};font-size:12px;color:var(--ink2);padding:6px 4px">${v||''}</td>`).join('')}
+    <td style="text-align:center;${mono};font-size:14px;color:var(--gold);padding:6px 8px">${tc}</td>
+    <td></td>
+    <td style="text-align:right;${mono};font-size:13px;color:var(--green);padding:6px 8px;white-space:nowrap">${totalLuong>0?numFmt(totalLuong):'—'}</td>
+    <td style="text-align:right;${mono};font-size:12px;color:var(--blue);padding:6px 8px;white-space:nowrap">${totalPC>0?numFmt(totalPC):'—'}</td>
+    <td style="text-align:right;${mono};font-size:12px;color:var(--ink2);padding:6px 8px;white-space:nowrap">${totalHD>0?numFmt(totalHD):'—'}</td>
+    <td></td>
+    <td style="text-align:right;${mono};font-size:14px;color:var(--gold);padding:6px 8px;white-space:nowrap;background:#fff8e8">${totalTC>0?numFmt(totalTC):'—'}</td>
+    <td></td>
+  `;
+  document.getElementById('cc-sum-tc').textContent=tc;
+  document.getElementById('cc-sum-luong').textContent=fmtM(totalLuong);
+  document.getElementById('cc-sum-tongcong').textContent=fmtM(totalTC);
+}
+
+// ─── save ─────────────────────────────────────────────────────────
+// Helper: upsert an invoice by ccKey (create or update in-place)
+function ccUpsertInvoice(ccKey, invData){
+  const idx=invoices.findIndex(i=>i.ccKey===ccKey);
+  if(idx>=0){ Object.assign(invoices[idx], invData); }
+  else { invoices.unshift({id:Date.now()+Math.random(), ccKey, ...invData}); }
+}
+// Helper: remove invoices matching a ccKey prefix
+function ccRemoveInvoicesByKeyPrefix(prefix){
+  invoices=invoices.filter(i=>!i.ccKey||!i.ccKey.startsWith(prefix));
+}
+
+function saveCCWeek(){
+  const fromDate=document.getElementById('cc-from').value;
+  const toDate  =document.getElementById('cc-to').value;
+  const ct      =document.getElementById('cc-ct-sel').value;
+  if(!fromDate){ toast('Chọn ngày bắt đầu tuần!','error'); return; }
+  if(!ct){ toast('Chọn công trình!','error'); return; }
+
+  // check duplicate names
+  const names=[];
+  let dupFound=false;
+  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row) [data-cc="name"]').forEach(el=>{
+    const n=el.value.trim();
+    if(n&&names.includes(n)){ dupFound=true; el.style.boxShadow='inset 0 0 0 2px var(--red)'; }
+    else if(n) names.push(n);
+  });
+  if(dupFound){ toast('⚠️ Còn tên trùng nhau! Sửa trước khi lưu.','error'); return; }
+
+  const workers=[];
+  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr=>{
+    const name=tr.querySelector('[data-cc="name"]')?.value?.trim()||'';
+    const luong=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
+    const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
+    const hdmuale=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    const nd=(tr.querySelector('[data-cc="nd"]')?.value?.trim()||'');
+    const d=[];
+    for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
+    if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd});
+  });
+  if(!workers.length){ toast('Chưa có công nhân nào!','error'); return; }
+
+  // Save CC data
+  ccData=ccData.filter(w=>!(w.fromDate===fromDate&&w.ct===ct));
+  ccData.unshift({id:Date.now(), fromDate, toDate, ct, workers});
+  save('cc_v2',ccData);
+
+  // ── UPSERT HĐ Mua Lẻ to invoices (one per worker with hdmuale > 0) ──
+  // First, remove old hdml invoices for workers no longer having hdmuale
+  const weekPrefix='cc|'+fromDate+'|'+ct+'|';
+  // Remove hdml keys for workers not in current list or with 0 amount
+  const activeHdmlKeys=new Set(workers.filter(w=>w.hdmuale>0).map(w=>weekPrefix+w.name+'|hdml'));
+  invoices=invoices.filter(i=>{
+    if(!i.ccKey||!i.ccKey.startsWith(weekPrefix)) return true;
+    if(!i.ccKey.endsWith('|hdml')) return true;
+    return activeHdmlKeys.has(i.ccKey);
+  });
+  let hdCount=0;
+  workers.forEach(wk=>{
+    if(!wk.hdmuale||wk.hdmuale<=0) return;
+    const key=weekPrefix+wk.name+'|hdml';
+    ccUpsertInvoice(key,{
+      ngay:toDate, congtrinh:ct, loai:'Hóa Đơn Lẻ',
+      nguoi:wk.name, ncc:'',
+      nd:wk.nd||('HĐ mua lẻ – '+wk.name+' ('+viShort(fromDate)+'–'+viShort(toDate)+')'),
+      tien:wk.hdmuale, thanhtien:wk.hdmuale
+    });
+    hdCount++;
+  });
+
+  // ── UPSERT Nhân Công invoice for the whole week ──
+  // One invoice per week+ct, Người TH = tên công nhân đầu tiên
+  const ncKey=weekPrefix+'nhanCong';
+  const totalLuong=workers.reduce((s,wk)=>{ const tc=wk.d.reduce((a,v)=>a+v,0); return s+tc*wk.luong+(wk.phucap||0); },0);
+  const firstWorker=(workers.find(w=>w.name)||{name:''}).name;
+  const ndNhanCong='Lương tuần '+viShort(fromDate)+'–'+viShort(toDate);
+  if(totalLuong>0){
+    ccUpsertInvoice(ncKey,{
+      ngay:toDate, congtrinh:ct, loai:'Nhân Công',
+      nguoi:firstWorker, ncc:'',
+      nd:ndNhanCong,
+      tien:totalLuong, thanhtien:totalLuong
+    });
+  } else {
+    // if total = 0, remove the NC invoice
+    invoices=invoices.filter(i=>i.ccKey!==ncKey);
+  }
+
+  save('inv_v3',invoices); updateTop();
+
+  rebuildCCNameList();
+  populateCCCtSel();
+  // Set filter về tuần vừa lưu trước khi build/render
+  document.getElementById('cc-hist-week').value = fromDate;
+  document.getElementById('cc-tlt-week').value  = fromDate;
+  buildCCHistFilters();
+  renderCCHistory();
+  renderCCTLT();
+  const msg=`✅ Đã lưu ${viShort(fromDate)}–${viShort(toDate)} [${ct}]`
+    +(hdCount?` · ${hdCount} HĐ lẻ`:'')
+    +(totalLuong>0?' · Nhân công cập nhật':'');
+  toast(msg,'success');
+}
+
+function clearCCWeek(){
+  if(!confirm('Xóa bảng nhập tuần này?')) return;
+  buildCCTable([]);
+}
+
+// ─── CT selector ──────────────────────────────────────────────────
+function populateCCCtSel(){
+  const allCts=[...new Set([...cats.congTrinh,...ccData.map(w=>w.ct)].filter(Boolean))].sort();
+  const sel=document.getElementById('cc-ct-sel');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">-- Chọn công trình --</option>'+
+    allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+}
+
+function onCCCtSelChange(){
+  loadCCWeekForm();
+}
+
+// ─── history (per week) ───────────────────────────────────────────
+function buildCCHistFilters(){
+  const allCts=[...new Set(ccData.map(w=>w.ct).filter(Boolean))].sort();
+  // weeks list
+  const allWeeks=[...new Set(ccData.map(w=>w.fromDate))].sort().reverse();
+
+  const ctSel=document.getElementById('cc-hist-ct'); const cv=ctSel.value;
+  ctSel.innerHTML='<option value="">Tất cả CT</option>'+allCts.map(c=>`<option ${c===cv?'selected':''} value="${x(c)}">${x(c)}</option>`).join('');
+
+  const wkSel=document.getElementById('cc-hist-week'); const wv=wkSel.value;
+  wkSel.innerHTML='<option value="">Tất cả tuần</option>'+allWeeks.map(w=>`<option ${w===wv?'selected':''} value="${w}">${weekLabel(w)}</option>`).join('');
+
+  // also update TLT week filter
+  const tltSel=document.getElementById('cc-tlt-week'); const tv=tltSel.value;
+  tltSel.innerHTML='<option value="">Tất cả tuần</option>'+allWeeks.map(w=>`<option ${w===tv?'selected':''} value="${w}">${weekLabel(w)}</option>`).join('');
+}
+
+function renderCCHistory(){
+  buildCCHistFilters();
+  const fCt=document.getElementById('cc-hist-ct').value;
+  const fWk=document.getElementById('cc-hist-week').value;
+
+  let rows=[];
+  ccData.forEach(w=>{
+    if(fCt&&w.ct!==fCt) return;
+    if(fWk&&w.fromDate!==fWk) return;
+    w.workers.forEach(wk=>{
+      const tc=wk.d.reduce((s,v)=>s+v,0);
+      const tl=tc*wk.luong;
+      const pc=wk.phucap||0;
+      const hd=wk.hdmuale||0;
+      rows.push({fromDate:w.fromDate,toDate:w.toDate,ct:w.ct,name:wk.name,luong:wk.luong,d:wk.d,tc,tl,pc,hd,nd:wk.nd||'',tongcong:tl+pc+hd,wid:w.id});
+    });
+  });
+
+  const tbody=document.getElementById('cc-hist-tbody');
+  const totalTL=rows.reduce((s,r)=>s+r.tl,0);
+  const totalTC2=rows.reduce((s,r)=>s+r.tongcong,0);
+
+  if(!rows.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="18">Chưa có dữ liệu chấm công</td></tr>`;
+    document.getElementById('cc-hist-pagination').innerHTML=''; return;
+  }
+
+  const start=(ccHistPage-1)*CC_PG;
+  const paged=rows.slice(start,start+CC_PG);
+
+  tbody.innerHTML=paged.map(r=>`<tr>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2);white-space:nowrap">${viShort(r.fromDate)}<br><span style="color:var(--ink3)">${viShort(r.toDate)}</span></td>
+    <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(r.ct||'—')}</td>
+    <td style="font-weight:600">${x(r.name||'—')}</td>
+    ${r.d.map(v=>`<td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
+    <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold)">${r.tc}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${r.luong?numFmt(r.luong):'—'}</td>
+    <td class="amount-td">${r.tl?numFmt(r.tl):'—'}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--blue)">${r.pc?numFmt(r.pc):'—'}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink2)">${r.hd?numFmt(r.hd):'—'}</td>
+    <td style="color:var(--ink2);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(r.nd||'—')}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--gold)">${r.tongcong?numFmt(r.tongcong):'—'}</td>
+    <td>
+      <button class="btn btn-outline btn-sm btn-icon" onclick="loadCCWeekFromHistory('${r.fromDate}','${x(r.ct)}')" title="Tải tuần này">↩</button>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="delCCWorker(${r.wid},'${x(r.name)}')" title="Xóa">✕</button>
+    </td>
+  </tr>`).join('');
+
+  const tp=Math.ceil(rows.length/CC_PG);
+  let pag=`<span>${rows.length} dòng · Tổng lương: <strong style="color:var(--green);font-family:'IBM Plex Mono',monospace">${fmtS(totalTL)}</strong> · Tổng cộng: <strong style="color:var(--gold);font-family:'IBM Plex Mono',monospace">${fmtS(totalTC2)}</strong></span>`;
+  if(tp>1){
+    pag+='<div class="page-btns">';
+    for(let p=1;p<=Math.min(tp,10);p++) pag+=`<button class="page-btn ${p===ccHistPage?'active':''}" onclick="ccHistGoTo(${p})">${p}</button>`;
+    if(tp>10) pag+=`<span style="padding:4px 6px;color:var(--ink3)">...${tp}</span>`;
+    pag+='</div>';
+  }
+  document.getElementById('cc-hist-pagination').innerHTML=pag;
+  renderCCTLT();
+}
+
+function ccHistGoTo(p){ ccHistPage=p; renderCCHistory(); }
+
+// ─── Tổng Lương Tuần (grouped by name per week) ───────────────────
+function renderCCTLT(){
+  buildCCHistFilters();
+  const fWk=document.getElementById('cc-tlt-week').value;
+
+  // Group by (fromDate, name) — accumulate day-by-day across CT
+  const map={};
+  ccData.forEach(w=>{
+    if(fWk&&w.fromDate!==fWk) return;
+    w.workers.forEach(wk=>{
+      const key=w.fromDate+'|'+wk.name;
+      if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[]};
+      wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
+      const tc=wk.d.reduce((s,v)=>s+v,0);
+      map[key].tc+=tc;
+      map[key].tl+=tc*(wk.luong||0);
+      map[key].pc+=(wk.phucap||0);
+      map[key].cts.push(w.ct);
+    });
+  });
+
+  const rows=Object.values(map).sort((a,b)=>b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name));
+  const tbody=document.getElementById('cc-tlt-tbody');
+  if(!rows.length){
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="13">Chưa có dữ liệu</td></tr>`;
+    document.getElementById('cc-tlt-pagination').innerHTML=''; return;
+  }
+
+  const grandTCLuong=rows.reduce((s,r)=>s+r.tl+r.pc,0);
+  const start=(ccTltPage-1)*CC_PG;
+  const paged=rows.slice(start,start+CC_PG);
+
+  const mono="font-family:'IBM Plex Mono',monospace";
+  tbody.innerHTML=paged.map(r=>{
+    const tcLuong=r.tl+r.pc;
+    const luongTB=r.tc>0?Math.round(tcLuong/r.tc):0;
+    return `<tr>
+    <td style="${mono};font-size:11px;color:var(--ink2);white-space:nowrap">${viShort(r.fromDate)}<br><span style="color:var(--ink3)">${viShort(r.toDate)}</span></td>
+    <td style="font-weight:700;font-size:13px">${x(r.name||'—')}</td>
+    ${r.d.map(v=>`<td style="text-align:center;${mono};font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
+    <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
+    <td style="text-align:right;${mono};font-weight:700;font-size:13px;color:var(--green)">${tcLuong?numFmt(tcLuong):'—'}</td>
+    <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${luongTB?numFmt(luongTB):'—'}</td>
+    <td style="font-size:11px;color:var(--ink2);max-width:200px">${r.cts.map(c=>x(c)).join('<br>')}</td>
+  </tr>`;}).join('');
+
+  const tp=Math.ceil(rows.length/CC_PG);
+  let pag=`<span>${rows.length} công nhân · Tổng TC Lương: <strong style="color:var(--green);${mono}">${fmtS(grandTCLuong)}</strong></span>`;
+  if(tp>1){
+    pag+='<div class="page-btns">';
+    for(let p=1;p<=Math.min(tp,10);p++) pag+=`<button class="page-btn ${p===ccTltPage?'active':''}" onclick="ccTltGoTo(${p})">${p}</button>`;
+    pag+='</div>';
+  }
+  document.getElementById('cc-tlt-pagination').innerHTML=pag;
+}
+
+function exportCCTLTCSV(){
+  const fWk=document.getElementById('cc-tlt-week').value;
+  const map={};
+  ccData.forEach(w=>{
+    if(fWk&&w.fromDate!==fWk) return;
+    w.workers.forEach(wk=>{
+      const key=w.fromDate+'|'+wk.name;
+      if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[]};
+      wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
+      const tc=wk.d.reduce((s,v)=>s+v,0);
+      map[key].tc+=tc; map[key].tl+=tc*(wk.luong||0);
+      map[key].pc+=(wk.phucap||0); map[key].cts.push(w.ct);
+    });
+  });
+  const rows=[['Tuần','Tên CN','CN','T2','T3','T4','T5','T6','T7','TC','TC Lương','Lương TB/Ngày','Công Trình']];
+  Object.values(map).sort((a,b)=>b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name)).forEach(r=>{
+    const tcL=r.tl+r.pc;
+    const ltb=r.tc>0?Math.round(tcL/r.tc):0;
+    rows.push([viShort(r.fromDate)+'–'+viShort(r.toDate),r.name,...r.d,r.tc,tcL,ltb,r.cts.join(', ')]);
+  });
+  dlCSV(rows,'tong_luong_tuan_'+today()+'.csv');
+}
+
+function ccTltGoTo(p){ ccTltPage=p; renderCCTLT(); }
+
+function loadCCWeekFromHistory(fromDate,ct){
+  const thisSun=ccSundayISO(0);
+  const [ty,tm,td]=thisSun.split('-').map(Number);
+  const [fy,fm,fd]=fromDate.split('-').map(Number);
+  const diffMs=new Date(fy,fm-1,fd)-new Date(ty,tm-1,td);
+  ccOffset=Math.round(diffMs/(7*86400000));
+  const satISO=ccSaturdayISO(fromDate);
+  document.getElementById('cc-from').value=fromDate;
+  document.getElementById('cc-to').value=satISO;
+  document.getElementById('cc-week-label').textContent='Tuần: '+weekLabel(fromDate);
+  document.getElementById('cc-ct-sel').value=ct;
+  const rec=ccData.find(w=>w.fromDate===fromDate&&w.ct===ct);
+  buildCCTable(rec?rec.workers:[]);
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('Đã tải tuần '+viShort(fromDate)+' – '+ct);
+}
+
+function delCCWorker(wid,name){
+  if(!confirm(`Xóa "${name}" khỏi tuần này?`)) return;
+  const w=ccData.find(r=>r.id===wid);
+  if(w){ w.workers=w.workers.filter(wk=>wk.name!==name); if(!w.workers.length) ccData=ccData.filter(r=>r.id!==wid); }
+  save('cc_v2',ccData); renderCCHistory(); toast('Đã xóa');
+}
+
+// ─── export ────────────────────────────────────────────────────────
+function exportCCWeekCSV(){
+  const f=document.getElementById('cc-from').value;
+  const ct=document.getElementById('cc-ct-sel').value||'?';
+  const rows=[['CT','Từ','Đến','Tên','CN','T2','T3','T4','T5','T6','T7','TC','Lương/N','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Nội Dung','Tổng Cộng']];
+  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr=>{
+    const name=tr.querySelector('[data-cc="name"]')?.value?.trim()||'';
+    if(!name) return;
+    const d=[]; for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
+    const tc=d.reduce((s,v)=>s+v,0);
+    const l=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
+    const pc=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
+    const hd=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    const nd=tr.querySelector('[data-cc="nd"]')?.value?.trim()||'';
+    rows.push([ct,f,document.getElementById('cc-to').value,name,...d,tc,l,tc*l,pc,hd,nd,tc*l+pc+hd]);
+  });
+  dlCSV(rows,'chamcong_'+f+'.csv');
+}
+
+function exportCCHistCSV(){
+  // Xuất đúng dữ liệu đang lọc trong bảng Lịch Sử Chấm Công Tuần
+  const fCt=document.getElementById('cc-hist-ct').value;
+  const fWk=document.getElementById('cc-hist-week').value;
+  const rows=[['CT','Từ','Đến','Tên CN','CN','T2','T3','T4','T5','T6','T7','TC','Lương/Ngày','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Nội Dung','Tổng Cộng']];
+  ccData.forEach(w=>{
+    if(fCt&&w.ct!==fCt) return;
+    if(fWk&&w.fromDate!==fWk) return;
+    w.workers.forEach(wk=>{
+      const tc=wk.d.reduce((s,v)=>s+v,0);
+      const tl=tc*(wk.luong||0);
+      const pc=wk.phucap||0;
+      const hd=wk.hdmuale||0;
+      rows.push([w.ct,viShort(w.fromDate)+'–'+viShort(w.toDate),w.toDate,wk.name,...wk.d,tc,wk.luong||0,tl,pc,hd,wk.nd||'',tl+pc+hd]);
+    });
+  });
+  const label=fWk?viShort(fWk):'all';
+  dlCSV(rows,'lich_su_cham_cong_'+label+'_'+today()+'.csv');
+}
+
+init();
+</script>
+</body>
+</html>
