@@ -74,7 +74,7 @@ function tbAddRow(data, num) {
         style="width:100%;border:none;background:transparent;padding:7px 10px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink)">
     </td>
     <td style="padding:0">
-      <input type="number" data-tb="soluong" class="np-num-input" min="0" step="1"
+      <input type="number" data-tb="soluong" class="np-num-input" min="0" step="1" inputmode="decimal"
         value="${data?.soluong||''}" placeholder="0"
         style="width:100%;border:none;background:transparent;padding:7px 8px;text-align:center;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;color:var(--ink)">
     </td>
@@ -297,7 +297,7 @@ function tbEditRow(id) {
           style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Số Lượng</label>
-          <input id="tb-ei-sl" type="number" class="np-num-input" min="0" value="${r.soluong||0}"
+          <input id="tb-ei-sl" type="number" class="np-num-input" min="0" value="${r.soluong||0}" inputmode="decimal"
             style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
         <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Tình Trạng</label>
           <select id="tb-ei-tt" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none">${ttOpts}</select></div>

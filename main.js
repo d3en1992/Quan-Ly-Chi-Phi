@@ -11,14 +11,6 @@ function init() {
   document.getElementById('entry-date').value = today();
   document.getElementById('ung-date').value = today();
 
-  // Ensure mobile system numeric keyboard for static money fields.
-  ['hd-giatri','hd-phatsinh','thu-tien'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.setAttribute('inputmode', 'numeric');
-    el.classList.add('num-input');
-  });
-
   // Hiển thị dữ liệu local ngay lập tức
   initTable(5);
   initUngTable(4);

@@ -156,8 +156,8 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 }
 .cell-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
 @media (pointer: coarse) {
-  .tien-input, .np-num-input { cursor: pointer; background: rgba(240,180,41,0.05); border-radius: 4px; }
-  .tien-input:focus, .np-num-input:focus { box-shadow: none; background: rgba(240,180,41,0.08); }
+  .tien-input, .cc-wage-input, .np-num-input { cursor: pointer; background: rgba(240,180,41,0.05); border-radius: 4px; }
+  .tien-input:focus, .cc-wage-input:focus, .np-num-input:focus { box-shadow: none; background: rgba(240,180,41,0.08); }
 }
 .cell-input.mono { font-family: 'IBM Plex Mono', monospace; }
 .cell-input.right { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
@@ -317,31 +317,6 @@ select.cell-input {
 .cc-name-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
 .cc-sum-row td { background: #f0ede8 !important; font-weight: 700; border-top: 2px solid var(--line2); }
 .cc-day-header { text-align: center !important; min-width: 44px; }
-
-/* Timesheet table stability */
-#page-chamcong .entry-table {
-  table-layout: fixed;
-  width: 100%;
-}
-#page-chamcong .entry-table .cc-day-header,
-#page-chamcong .entry-table .cc-day-col {
-  width: 52px;
-  min-width: 52px;
-  max-width: 52px;
-}
-@media (max-width: 768px) {
-  #page-chamcong .entry-table {
-    table-layout: fixed;
-    width: 100%;
-    min-width: 0 !important;
-  }
-  #page-chamcong .entry-table .cc-day-header,
-  #page-chamcong .entry-table .cc-day-col {
-    width: 44px;
-    min-width: 44px;
-    max-width: 44px;
-  }
-}
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

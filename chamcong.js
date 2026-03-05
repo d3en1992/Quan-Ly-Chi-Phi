@@ -251,19 +251,6 @@ function addCCRow(w){
   tbody.appendChild(buildCCRow(w,num));
 }
 
-function _round1(v){
-  return Math.round((Number(v)||0) * 10) / 10;
-}
-function _fmtWorkDay(v){
-  const n = _round1(v);
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
-function _getCCDayVal(tr, idx){
-  const el = tr.querySelector(`[data-cc="d${idx}"]`);
-  const n = parseFloat(String(el?.value||'').replace(',','.')) || 0;
-  return _round1(n);
-}
-
 function buildCCRow(w,num){
   const tr=document.createElement('tr');
   const ds=w?w.d:[0,0,0,0,0,0,0];
@@ -288,16 +275,16 @@ function buildCCRow(w,num){
         <option value="P" ${role==='P'?'selected':''}>P</option>
       </select>
     </td>
-    ${ds.map((v,i)=>`<td class="cc-day-col" style="padding:0"><input type="number" inputmode="decimal" step="0.1" class="cc-day-input num-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
-      data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off"
+    ${ds.map((v,i)=>`<td style="padding:0"><input class="cc-day-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
+      data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off" inputmode="decimal"
       oninput="onCCDayKey(this)"></td>`).join('')}
     <td class="cc-tc-cell" data-cc="tc">0</td>
-    <td style="padding:0"><input type="text" inputmode="numeric" class="cc-wage-input num-input" data-cc="luong" data-raw="${luong||''}"
+    <td style="padding:0"><input class="cc-wage-input" data-cc="luong" data-raw="${luong||''}" inputmode="decimal"
       value="${luong?numFmt(luong):''}" placeholder="0" oninput="onCCWageKey(this)"></td>
     <td class="cc-total-cell" data-cc="total">—</td>
-    <td style="padding:0"><input type="text" inputmode="numeric" class="cc-wage-input num-input" data-cc="phucap" data-raw="${phucap||''}"
+    <td style="padding:0"><input class="cc-wage-input" data-cc="phucap" data-raw="${phucap||''}" inputmode="decimal"
       value="${phucap?numFmt(phucap):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
-    <td style="padding:0"><input type="text" inputmode="numeric" class="cc-wage-input num-input" data-cc="hdml" data-raw="${hdml||''}"
+    <td style="padding:0"><input class="cc-wage-input" data-cc="hdml" data-raw="${hdml||''}" inputmode="decimal"
       value="${hdml?numFmt(hdml):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
     <td style="padding:0"><input class="cc-name-input" data-cc="nd"
       value="${x(w?w.nd||'':''||'')}" placeholder="Nội dung..."
@@ -349,7 +336,7 @@ function onCCNameInput(inp){
 }
 
 function onCCDayKey(inp){
-  const n=_round1(parseFloat(inp.value.replace(',','.'))||0);
+  const n=parseFloat(inp.value.replace(',','.'))||0;
   inp.classList.toggle('has-val',n===1);
   inp.classList.toggle('half-val',n>0&&n<1);
   calcCCRow(inp.closest('tr'));
@@ -369,13 +356,13 @@ function onCCMoneyKey(inp){
 
 function calcCCRow(tr){
   let tc=0;
-  for(let i=0;i<7;i++) tc = _round1(tc + _getCCDayVal(tr, i));
-  tr.querySelector('[data-cc="tc"]').textContent = _fmtWorkDay(tc);
+  for(let i=0;i<7;i++) tc+=parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0;
+  tr.querySelector('[data-cc="tc"]').textContent=tc||0;
   const luong=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
-  const total=Math.round(tc*luong);
+  const total=tc*luong;
   const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
   const hdml  =parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
-  const tongcong=Math.round(total+phucap+hdml);
+  const tongcong=total+phucap+hdml;
   const totCell=tr.querySelector('[data-cc="total"]');
   totCell.textContent=total>0?numFmt(total):'—';
   totCell.style.color=total>0?'var(--green)':'var(--ink3)';
@@ -394,14 +381,14 @@ function updateCCSumRow(){
   const dayT=new Array(7).fill(0);
   let tc=0,totalLuong=0,totalPC=0,totalHD=0,totalTC=0;
   rows.forEach(tr=>{
-    for(let i=0;i<7;i++) dayT[i] = _round1(dayT[i] + _getCCDayVal(tr, i));
-    const t=_round1(parseFloat(tr.querySelector('[data-cc="tc"]')?.textContent||0)||0);
-    tc = _round1(tc + t);
+    for(let i=0;i<7;i++) dayT[i]+=parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0;
+    const t=parseFloat(tr.querySelector('[data-cc="tc"]')?.textContent||0)||0;
+    tc+=t;
     const l=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
     const pc=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
     const hd=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
-    totalLuong += Math.round(t*l); totalPC += pc; totalHD += hd;
-    totalTC += Math.round(t*l + pc + hd);
+    totalLuong+=t*l; totalPC+=pc; totalHD+=hd;
+    totalTC+=t*l+pc+hd;
   });
   let sumRow=document.querySelector('#cc-tbody .cc-sum-row');
   if(!sumRow){ sumRow=document.createElement('tr'); sumRow.className='cc-sum-row'; document.getElementById('cc-tbody').appendChild(sumRow); }
@@ -409,8 +396,8 @@ function updateCCSumRow(){
   sumRow.innerHTML=`
     <td class="row-num" style="font-size:10px;font-weight:700;color:var(--ink2)">∑</td>
     <td class="cc-sticky-name" style="padding:7px 10px;font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px">TỔNG</td>
-    ${dayT.map(v=>`<td class="cc-day-col" style="text-align:center;${mono};font-size:12px;color:var(--ink2);padding:6px 4px">${_fmtWorkDay(v)}</td>`).join('')}
-    <td style="text-align:center;${mono};font-size:14px;color:var(--gold);padding:6px 8px">${_fmtWorkDay(tc)}</td>
+    ${dayT.map(v=>`<td style="text-align:center;${mono};font-size:12px;color:var(--ink2);padding:6px 4px">${v||''}</td>`).join('')}
+    <td style="text-align:center;${mono};font-size:14px;color:var(--gold);padding:6px 8px">${tc}</td>
     <td></td>
     <td style="text-align:right;${mono};font-size:13px;color:var(--green);padding:6px 8px;white-space:nowrap">${totalLuong>0?numFmt(totalLuong):'—'}</td>
     <td style="text-align:right;${mono};font-size:12px;color:var(--blue);padding:6px 8px;white-space:nowrap">${totalPC>0?numFmt(totalPC):'—'}</td>
@@ -581,7 +568,7 @@ function saveCCWeek(){
     const nd=(tr.querySelector('[data-cc="nd"]')?.value?.trim()||'');
     const role=tr.querySelector('[data-cc="tp"]')?.value||'';
     const d=[];
-    for(let i=0;i<7;i++) d.push(_getCCDayVal(tr, i));
+    for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
     if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd,role});
   });
   if(!workers.length){ toast('Chưa có công nhân nào!','error'); return; }

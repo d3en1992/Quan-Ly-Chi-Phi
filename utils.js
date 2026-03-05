@@ -374,6 +374,8 @@ function numpadDone() {
 // ── Helper: nhận biết ô số cần numpad ──────────────────────────
 function isNumpadTarget(el) {
   return el.classList.contains('tien-input') ||
+         el.classList.contains('cc-wage-input') ||
+         el.classList.contains('cc-day-input') ||
          el.classList.contains('np-num-input');
 }
 
@@ -410,26 +412,49 @@ function buildNumpadLabel(el) {
   return 'Nhập số';
 }
 
-// Event delegation: intercept focus/click on touch devices
-document.addEventListener('focus', function(e) {
-  const el = e.target;
-  if(!isNumpadTarget(el)) return;
-  if(!isTouchDevice()) return;
-  e.preventDefault(); e.stopPropagation();
-  el.blur();
-  setTimeout(() => openNumpad(el, buildNumpadLabel(el)), 30);
-}, true);
+// Native mobile numeric keyboard: force decimal inputmode on numeric fields.
+const NATIVE_NUMERIC_SELECTOR = [
+  'input.tien-input',
+  'input.cc-day-input',
+  'input.cc-wage-input',
+  'input.np-num-input',
+  'input[type="number"]',
+  '#hd-giatri',
+  '#hd-phatsinh',
+  '#thu-tien'
+].join(',');
 
-document.addEventListener('click', function(e) {
-  const el = e.target;
-  if(!isNumpadTarget(el)) return;
-  if(!isTouchDevice()) return;
-  e.preventDefault(); e.stopPropagation();
-  el.blur();
-  openNumpad(el, buildNumpadLabel(el));
-}, true);
+function applyNativeNumericInputMode(root) {
+  const host = (root && root.querySelectorAll) ? root : document;
+  host.querySelectorAll(NATIVE_NUMERIC_SELECTOR).forEach(el => {
+    el.setAttribute('inputmode', 'decimal');
+  });
+}
 
-// Close with Escape key on desktop
+applyNativeNumericInputMode(document);
+document.addEventListener('focusin', function(e) {
+  const el = e.target;
+  if(el && el.matches && el.matches(NATIVE_NUMERIC_SELECTOR)) {
+    el.setAttribute('inputmode', 'decimal');
+  }
+});
+
+if(window.MutationObserver) {
+  const _nativeKbObserver = new MutationObserver(mutations => {
+    mutations.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if(!(node instanceof HTMLElement)) return;
+        if(node.matches && node.matches(NATIVE_NUMERIC_SELECTOR)) {
+          node.setAttribute('inputmode', 'decimal');
+        }
+        applyNativeNumericInputMode(node);
+      });
+    });
+  });
+  _nativeKbObserver.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+// Keep Escape close behavior in case overlay is opened by legacy calls.
 document.addEventListener('keydown', function(e) {
   if(e.key==='Escape') closeNumpad();
 });
@@ -441,113 +466,86 @@ document.addEventListener('keydown', function(e) {
 // ══════════════════════════════════════════════════════════════
 
 (function _initKeyboardNav() {
-
-  // Các selector ô có thể focus trong bảng nhập
-  const FOCUSABLE = 'input:not([readonly]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
-
-  // Lấy tất cả ô focusable trong 1 tbody theo thứ tự DOM
-  function _getCells(tbody) {
-    return Array.from(tbody.querySelectorAll(FOCUSABLE));
+  function isNumericInput(el) {
+    return !!(
+      el &&
+      el.tagName === 'INPUT' &&
+      !el.readOnly &&
+      !el.disabled &&
+      el.matches(NATIVE_NUMERIC_SELECTOR)
+    );
   }
-
-  function _handleKey(e, tbodyId, saveFn, addRowFn) {
-    const tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-
-    // Ctrl+Enter → Lưu
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      saveFn();
-      return;
-    }
-
-    // Shift+Enter → Thêm dòng mới
-    if (e.key === 'Enter' && e.shiftKey) {
-      e.preventDefault();
-      addRowFn();
-      // Focus vào ô đầu tiên của dòng mới
-      setTimeout(() => {
-        const rows = tbody.querySelectorAll('tr');
-        const lastRow = rows[rows.length - 1];
-        if (lastRow) {
-          const first = lastRow.querySelector(FOCUSABLE);
-          if (first) first.focus();
-        }
-      }, 50);
-      return;
-    }
-
-    // Enter đơn → xuống ô tiếp theo trong cùng cột (hoặc ô kế tiếp nếu cuối)
-    if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
-      // Không áp dụng cho select (Enter mở dropdown là hành vi tự nhiên)
-      if (e.target.tagName === 'SELECT') return;
-      e.preventDefault();
-
-      const cells = _getCells(tbody);
-      const curIdx = cells.indexOf(e.target);
-      if (curIdx === -1) return;
-
-      // Tìm ô cùng cột dòng dưới
-      const curTr = e.target.closest('tr');
-      const curTds = Array.from(curTr.querySelectorAll('td'));
-      const curTdIdx = curTds.findIndex(td => td.contains(e.target));
-
-      const nextTr = curTr.nextElementSibling;
-      if (nextTr) {
-        const nextTds = Array.from(nextTr.querySelectorAll('td'));
-        const targetTd = nextTds[curTdIdx] || nextTds[nextTds.length - 1];
-        const targetInput = targetTd?.querySelector(FOCUSABLE);
-        if (targetInput) { targetInput.focus(); return; }
-      }
-
-      // Không có dòng dưới → focus ô tiếp theo
-      const nextCell = cells[curIdx + 1];
-      if (nextCell) nextCell.focus();
-    }
+  function firstNumericInRow(tr) {
+    if(!tr) return null;
+    const inputs = Array.from(tr.querySelectorAll('input'));
+    return inputs.find(isNumericInput) || null;
   }
-
-  // Đợi DOM sẵn sàng rồi bind
+  function nextNumericInSameRow(inputEl) {
+    const tr = inputEl.closest('tr');
+    const td = inputEl.closest('td,th');
+    if(!tr || !td) return null;
+    const cells = Array.from(tr.children).filter(c => c.matches && c.matches('td,th'));
+    const idx = cells.findIndex(c => c === td || c.contains(inputEl));
+    if(idx < 0) return null;
+    for(let i = idx + 1; i < cells.length; i++) {
+      const cand = Array.from(cells[i].querySelectorAll('input')).find(isNumericInput);
+      if(cand) return cand;
+    }
+    return null;
+  }
+  function firstNumericInNextRows(inputEl) {
+    let tr = inputEl.closest('tr');
+    while(tr && tr.nextElementSibling) {
+      tr = tr.nextElementSibling;
+      const cand = firstNumericInRow(tr);
+      if(cand) return cand;
+    }
+    return null;
+  }
+  function focusCell(el) {
+    if(!el) return;
+    el.focus();
+    if(el.select) el.select();
+  }
   document.addEventListener('keydown', function(e) {
+    if(e.key !== 'Enter') return;
     const active = document.activeElement;
-    if (!active) return;
-
-    // Bảng Nhập HĐ
-    if (active.closest('#entry-tbody')) {
-      _handleKey(e, 'entry-tbody', saveAllRows, () => addRows(1));
+    if(!isNumericInput(active)) return;
+    if (e.ctrlKey || e.metaKey) {
+      if (active.closest('#entry-tbody')) {
+        e.preventDefault();
+        saveAllRows();
+      } else if (active.closest('#ung-tbody')) {
+        e.preventDefault();
+        saveAllUngRows();
+      }
       return;
     }
-
-    // Bảng Tiền Ứng
-    if (active.closest('#ung-tbody')) {
-      _handleKey(e, 'ung-tbody', saveAllUngRows, () => addUngRows(1));
+    if (e.shiftKey) {
+      if (active.closest('#entry-tbody')) {
+        e.preventDefault();
+        addRows(1);
+        setTimeout(() => {
+          const last = document.querySelector('#entry-tbody tr:last-child');
+          focusCell(firstNumericInRow(last));
+        }, 50);
+      } else if (active.closest('#ung-tbody')) {
+        e.preventDefault();
+        addUngRows(1);
+        setTimeout(() => {
+          const last = document.querySelector('#ung-tbody tr:last-child');
+          focusCell(firstNumericInRow(last));
+        }, 50);
+      }
       return;
     }
-  });
-
-})();
-
-// [MODULE: NUM INPUT NAV] â€” Enter moves to next .num-input
-(function _initNumInputNav() {
-  function _nextNumInput(cur) {
-    const row = cur.closest('tr');
-    if (row) {
-      const rowInputs = Array.from(row.querySelectorAll('.num-input:not([disabled]):not([readonly])'));
-      const idx = rowInputs.indexOf(cur);
-      if (idx > -1 && idx < rowInputs.length - 1) return rowInputs[idx + 1];
-      const nextRow = row.nextElementSibling;
-      if (nextRow) return nextRow.querySelector('.num-input:not([disabled]):not([readonly])');
-    }
-    const all = Array.from(document.querySelectorAll('.num-input:not([disabled]):not([readonly])'));
-    const i = all.indexOf(cur);
-    return i > -1 && i < all.length - 1 ? all[i + 1] : null;
-  }
-
-  document.addEventListener('keydown', function(e) {
-    const el = e.target;
-    if (!el || !el.classList || !el.classList.contains('num-input')) return;
-    if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const tr = active.closest('tr');
+    const td = active.closest('td,th');
+    if(!tr || !td) return;
     e.preventDefault();
-    const next = _nextNumInput(el);
-    if (next) next.focus();
+    const right = nextNumericInSameRow(active);
+    if(right) { focusCell(right); return; }
+    const down = firstNumericInNextRows(active);
+    if(down) focusCell(down);
   });
 })();
