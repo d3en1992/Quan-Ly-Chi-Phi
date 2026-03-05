@@ -140,36 +140,6 @@ function _testParseMoney() {
 function x(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function toast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+(type?type:''); t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),2800); }
 
-function makeStableId(obj, fields){
-  const raw = fields.map(f => (obj[f] ?? '')).join('|');
-  return btoa(unescape(encodeURIComponent(raw)));
-}
-
-function mergeUnique(existing, incoming){
-  const map = new Map();
-  (existing || []).forEach(r => map.set(r.id, r));
-  (incoming || []).forEach(r => {
-    const old = map.get(r.id);
-    if(!old){
-      map.set(r.id, r);
-      return;
-    }
-    if((r.updatedAt || 0) > (old.updatedAt || 0)){
-      map.set(r.id, r);
-    }
-  });
-  return Array.from(map.values());
-}
-
-function ensureMeta(record) {
-  const createdAt = record.createdAt || record._ts || Date.now();
-  const updatedAt = record.updatedAt || record._ts || createdAt;
-  record.createdAt = createdAt;
-  record.updatedAt = updatedAt;
-  record._ts = updatedAt;
-  return record;
-}
-
 function inActiveYear(dateStr) {
   if(!dateStr) return false;
   if(activeYear === 0) return true; // "Tất cả năm"

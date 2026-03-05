@@ -40,7 +40,6 @@ const FS_BASE = () =>
 // ── Keys localStorage ──────────────────────────────────────
 const FB_CFG_KEY   = 'fb_config';    // lưu apiKey + projectId
 const FB_CACHE_KEY = 'fb_bins_cache';// cache map năm → docId
-const FB_LAST_SYNC_KEY = 'fb_last_sync_time';
 
 // ── Load config từ localStorage ───────────────────────────
 (function() {
@@ -377,34 +376,32 @@ function compressInv(arr) {
     if(o.id!==undefined)r.i=o.id; if(o.ngay)r.d=o.ngay; if(o.congtrinh)r.c=o.congtrinh;
     if(o.loai)r.l=o.loai; if(o.nguoi)r.n=o.nguoi; if(o.ncc)r.s=o.ncc; if(o.nd)r.t=o.nd;
     if(o.tien)r.p=o.tien; if(o.thanhtien&&o.thanhtien!==o.tien)r.q=o.thanhtien;
-    if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey; if(o._ts)r.m=o._ts;
-    if(o.createdAt)r.ca=o.createdAt; if(o.updatedAt)r.ua=o.updatedAt; return r;});
+    if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey; if(o._ts)r.m=o._ts; return r;});
 }
 function expandInv(arr) {
   return (arr||[]).map(o=>({id:o.i,ngay:o.d,congtrinh:o.c,loai:o.l,nguoi:o.n||'',ncc:o.s||'',
-    nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined,
-    createdAt:o.ca||o.m||undefined,updatedAt:o.ua||o.m||undefined}));
+    nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined}));
 }
 function compressCC(arr) {
-  return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,ca:w.createdAt||0,ua:w.updatedAt||0,
+  return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,
     w:w.workers.map(wk=>{const r={n:wk.name,d:wk.d,l:wk.luong};
       if(wk.phucap)r.p=wk.phucap; if(wk.hdmuale)r.h=wk.hdmuale; if(wk.nd)r.t=wk.nd; return r;})}));
 }
 function expandCC(arr) {
-  return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,createdAt:w.ca||undefined,updatedAt:w.ua||undefined,
+  return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,
     workers:(w.w||[]).map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||''}))}));
 }
 function compressUng(arr) {
-  return (arr||[]).map(o=>({i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||'',ca:o.createdAt||0,ua:o.updatedAt||0,m:o._ts||0}));
+  return (arr||[]).map(o=>({i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''}));
 }
 function expandUng(arr) {
-  return (arr||[]).map(o=>({id:o.i,ngay:o.d,tp:o.t,congtrinh:o.c,tien:o.p||0,nd:o.n||'',createdAt:o.ca||o.m||undefined,updatedAt:o.ua||o.m||undefined,_ts:o.m||undefined}));
+  return (arr||[]).map(o=>({id:o.i,ngay:o.d,tp:o.t,congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
 }
 function compressTb(arr) {
-  return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||'',ca:o.createdAt||0,ua:o.updatedAt||0,m:o._ts||0}));
+  return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
 }
 function expandTb(arr) {
-  return (arr||[]).map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||'',createdAt:o.ca||o.m||undefined,updatedAt:o.ua||o.m||undefined,_ts:o.m||undefined}));
+  return (arr||[]).map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||''}));
 }
 
 function load(k, def) {
@@ -485,24 +482,14 @@ function fbPushAll() {
   if (!fbReady()) return;
   if (_fbPushing) { save._t = setTimeout(fbPushAll, 3000); return; }
   const yr = activeYear || new Date().getFullYear();
-  const ys = String(yr);
-  const lastSyncTime = parseInt(localStorage.getItem(FB_LAST_SYNC_KEY) || '0', 10) || 0;
-  const changedInv = load('inv_v3',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys)&&((x.updatedAt||x._ts||0)>lastSyncTime));
-  const changedUng = load('ung_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys)&&((x.updatedAt||x._ts||0)>lastSyncTime));
-  const changedCC  = load('cc_v2',[]).filter(x=>x.fromDate&&x.fromDate.startsWith(ys)&&((x.updatedAt||0)>lastSyncTime));
-  const changedTB  = load('tb_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys)&&((x.updatedAt||x._ts||0)>lastSyncTime));
-  const changedThu = load('thu_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys)&&((x.updatedAt||x._ts||0)>lastSyncTime));
-  const changedCount = changedInv.length + changedUng.length + changedCC.length + changedTB.length + changedThu.length;
-  if (!changedCount) return;
   const payload = fbYearPayload(yr);
   const kb = Math.round(JSON.stringify(payload).length/1024*10)/10;
   _fbPushing = true;
   _ensureSyncDot(); _setSyncDot('syncing');
-  showSyncBanner('☁️ Đang lưu ' + changedCount + ' thay đổi (~' + kb + 'kb)...');
+  showSyncBanner('☁️ Đang lưu (~' + kb + 'kb)...');
   fsSet(fbDocYear(yr), payload).then(res=>{
     _fbPushing = false;
     if (res.fields) {
-      localStorage.setItem(FB_LAST_SYNC_KEY, String(Date.now()));
       _setSyncDot('');
       showSyncBanner('✅ Đã lưu cloud (~' + kb + 'kb)', 2000);
       updateJbBtn();
@@ -541,14 +528,14 @@ function gsLoadAll(callback) {
           const d = x.ngay||x.fromDate||'';
           return !d.startsWith(ys);
         });
-        localStorage.setItem(key, JSON.stringify(mergeUnique(existing, expanded)));
+        localStorage.setItem(key, JSON.stringify([...expanded,...existing]));
       };
       if(yearData.i) mergeArr('inv_v3', expandInv(yearData.i));
       if(yearData.u) mergeArr('ung_v1', expandUng(yearData.u));
       if(yearData.c) { const ex=load('cc_v2',[]).filter(x=>!x.fromDate||!x.fromDate.startsWith(ys));
-        localStorage.setItem('cc_v2', JSON.stringify(mergeUnique(ex, expandCC(yearData.c)))); }
+        localStorage.setItem('cc_v2', JSON.stringify([...expandCC(yearData.c),...ex])); }
       if(yearData.t) { const ex=load('tb_v1',[]).filter(x=>!x.ngay||!x.ngay.startsWith(ys));
-        localStorage.setItem('tb_v1', JSON.stringify(mergeUnique(ex, expandTb(yearData.t)))); }
+        localStorage.setItem('tb_v1', JSON.stringify([...expandTb(yearData.t),...ex])); }
     }
     // Apply cats
     const catsData = fsUnwrap(catsDoc);
