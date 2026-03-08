@@ -680,7 +680,7 @@ function renderCCTLT(){
       const daysHtml=r.d.map((v,i)=>v>0?`<span class="tlt-day-badge${v>=1?' tlt-day-full':' tlt-day-half'}">${DAY_LABELS[i]}: ${v}</span>`:'').filter(Boolean).join('');
       const ctsHtml=r.cts.length?`<div class="tlt-card-cts">${r.cts.map(c=>x(c)).join(' · ')}</div>`:'';
       const periodHtml=fWk?`${viShort(r.fromDate)} – ${viShort(r.toDate)}`:'Tổng nhiều tuần';
-      const tongUng_=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+      const tongUng_=ungRecords.filter(u=>!u.cancelled&&u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
       const tongTruAll_=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
       const noCon_=tongUng_-tongTruAll_;
       return `<div class="tlt-card"
@@ -708,7 +708,7 @@ function renderCCTLT(){
       const tcLuong=r.tl+r.pc+r.hdml;
       const luongTB=r.tc>0?Math.round(r.tl/r.tc):0;
       const thucLanh_=tcLuong-r.tru;
-      const tongUng_=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+      const tongUng_=ungRecords.filter(u=>!u.cancelled&&u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
       const tongTruAll_=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
       const noCon_=tongUng_-tongTruAll_;
       const noConStr_=noCon_>0?numFmt(noCon_)+' (nợ)':noCon_<0?numFmt(-noCon_)+' (dư)':'0';
@@ -771,7 +771,7 @@ function exportCCTLTCSV(){
     const tcL=r.tl+r.pc+r.hdml;  // consistent with TLT table
     const ltb=r.tc>0?Math.round(r.tl/r.tc):0;
     const thucLanh_csv=tcL-r.tru;
-    const tongUng_csv=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+    const tongUng_csv=ungRecords.filter(u=>!u.cancelled&&u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
     const tongTruAll_csv=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
     const noCon_csv=tongUng_csv-tongTruAll_csv;
     const periodStr=fWk?viShort(r.fromDate)+'–'+viShort(r.toDate):'Tổng';
