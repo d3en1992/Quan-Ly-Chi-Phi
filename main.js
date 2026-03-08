@@ -24,9 +24,6 @@ function init() {
   // ── Bắt đầu auto backup ngầm mỗi 30 phút ──────────────────
   autoBackup();
 
-  // Tự động tạo HĐ nhân công nếu có CC data nhưng chưa có HĐ (vd: sau khi import Excel)
-  autoRebuildCCIfNeeded();
-
   buildYearSelect();
   renderTrash();
   renderTodayInvoices();
@@ -71,9 +68,9 @@ function init() {
     buildYearSelect(); updateTop();
     rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
     initTable(5); initUngTable(4); initCC();
-    const built2 = rebuildInvoicesFromCC();
+    const built2 = rebuildCCCategories();
     updateTop();
-    toast(`✅ Đồng bộ xong! ${built2.weeks} HĐ nhân công, ${built2.cts} CT mới`, 'success');
+    toast(`✅ Đồng bộ xong! ${built2.cts} CT mới`, 'success');
   });
 }
 
@@ -136,8 +133,6 @@ function onYearChange() {
       ungRecords = load('ung_v1', []);
       ccData     = load('cc_v2', []);
       tbData     = load('tb_v1', []);
-      rebuildInvoicesFromCC();
-      invoices   = load('inv_v3', []);
       buildYearSelect();
       _refreshAllTabs();
       hideSyncBanner();
@@ -198,5 +193,15 @@ function _refreshAllTabs() {
   cats.thauPhu        = load('cat_tp',       []);
   cats.congNhan       = load('cat_cn',       []);
   cnRoles             = load('cat_cn_roles', {});
+
+  // Dọn sạch HĐ CC cũ còn sót trong inv_v3 (migration một lần)
+  // Từ giờ CC invoices được tính động qua buildInvoices(), không lưu vào storage
+  const legacyCCCount = invoices.filter(i => i.ccKey).length;
+  if (legacyCCCount > 0) {
+    invoices = invoices.filter(i => !i.ccKey);
+    save('inv_v3', invoices);
+    console.log(`[Migration] Đã xóa ${legacyCCCount} HĐ CC cũ khỏi inv_v3`);
+  }
+
   init();
 })();

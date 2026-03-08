@@ -42,6 +42,14 @@
       </tr>
     </tfoot>
   </table>
+  <div id="pl-debt-summary" style="display:none;margin:10px 0 6px;padding:10px 14px;border:1px solid #e0d8c8;border-radius:4px;background:#faf8f4;font-family:'IBM Plex Mono',Arial,monospace;font-size:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 20px">
+      <div>TỔNG CỘNG: <strong id="pl-ds-tong"></strong></div>
+      <div style="color:#c0392b">TRỪ NỢ ỨNG: <strong id="pl-ds-tru"></strong></div>
+      <div style="color:#1a6e3a;font-size:13px;font-weight:700">THỰC LÃNH: <strong id="pl-ds-thuc"></strong></div>
+      <div>NỢ CÒN: <strong id="pl-ds-no"></strong></div>
+    </div>
+  </div>
   <div class="pl-footer">
     <div class="pl-grand-total" id="pl-grand-total"></div>
     <div class="pl-grand-label">( Bằng chữ — vui lòng ghi tay )</div>
@@ -477,7 +485,7 @@
 
     <!-- Bảng 1: Nhập tiền ứng -->
     <div class="section-header">
-      <div class="section-title"><span class="dot"></span>Nhập Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+      <div class="section-title"><span class="dot"></span>Nhập Tiền Ứng</div>
       <div class="btn-group">
         <button class="btn btn-outline" onclick="clearUngTable()">🗑 Xóa bảng</button>
         <button class="btn btn-outline" onclick="exportUngEntryCSV()">⬇ Xuất CSV</button>
@@ -496,7 +504,8 @@
           <thead>
             <tr>
               <th class="col-num">#</th>
-              <th style="width:200px">Thầu Phụ / Nhà CC <span style="color:var(--gold)">*</span></th>
+              <th style="width:110px">Đối Tượng</th>
+              <th style="width:200px">Thầu Phụ / Công Nhân <span style="color:var(--gold)">*</span></th>
               <th style="width:220px">Công Trình</th>
               <th style="width:140px">Số Tiền Ứng (đ)</th>
               <th style="min-width:220px">Nội Dung / Ghi Chú</th>
@@ -524,7 +533,7 @@
     <!-- Bảng 2: Tổng tiền ứng -->
     <div style="margin-top:24px">
       <div class="section-header">
-        <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+        <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng</div>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
           <button class="btn btn-sm" onclick="exportUngToImage()"
@@ -544,25 +553,7 @@
           <select class="filter-sel" id="uf-ct" onchange="filterAndRenderUng()"><option value="">Tất cả công trình</option></select>
           <select class="filter-sel" id="uf-month" onchange="filterAndRenderUng()"><option value="">Tất cả tháng</option></select>
         </div>
-        <div style="overflow-x:auto">
-          <table class="records-table">
-            <thead>
-              <tr>
-                <th style="width:32px;text-align:center">
-                  <input type="checkbox" id="ung-chk-all" title="Chọn tất cả"
-                    onchange="document.querySelectorAll('.ung-row-chk').forEach(x=>x.checked=this.checked)">
-                </th>
-                <th>Ngày</th>
-                <th>Thầu Phụ / Nhà CC</th>
-                <th>Công Trình</th>
-                <th>Nội Dung</th>
-                <th style="text-align:right">Số Tiền Ứng</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="ung-all-tbody"></tbody>
-          </table>
-        </div>
+        <div id="ung-all-sections"></div>
         <div class="pagination" id="ung-pagination"></div>
       </div>
     </div>
@@ -603,7 +594,7 @@
     <!-- Attendance table -->
     <div class="entry-table-wrap">
       <div class="table-scroll">
-        <table class="entry-table cc-grid-table" style="min-width:1100px">
+        <table class="entry-table cc-grid-table" style="min-width:1220px">
           <thead><tr id="cc-thead-row"></tr></thead>
           <tbody id="cc-tbody"></tbody>
         </table>
@@ -624,6 +615,9 @@
         <span>Tổng cộng tuần: <span class="hi" style="color:var(--gold)" id="cc-sum-tongcong">0 đ</span></span>
       </div>
     </div>
+
+    <!-- Bảng tổng lương & công nợ tuần (render động bởi renderCCSalaryTable) -->
+
 
     <!-- Tổng Lương Tuần (theo tên CN) — đưa lên TRÊN lịch sử -->
     <div style="margin-top:20px">
@@ -656,6 +650,9 @@
               <th style="text-align:center">TC</th>
               <th style="text-align:right">TC Lương</th>
               <th style="text-align:right">Lương TB/Ngày</th>
+              <th style="text-align:right;color:var(--red)">Trừ</th>
+              <th style="text-align:right">Thực Lãnh</th>
+              <th style="text-align:right">Nợ Còn</th>
               <th>Công Trình</th>
             </tr></thead>
             <tbody id="cc-tlt-tbody"></tbody>

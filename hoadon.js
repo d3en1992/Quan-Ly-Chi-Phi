@@ -296,9 +296,10 @@ function _doSaveRows(rows) {
 //  ALL PAGE
 // ══════════════════════════════
 function buildFilters() {
-  const yearInvs = invoices.filter(i=>inActiveYear(i.ngay));
+  const allInvs = buildInvoices();
+  const yearInvs = allInvs.filter(i=>inActiveYear(i.ngay));
   // Dropdown CT: lọc mềm — CT có bất kỳ phát sinh (HĐ/CC/Ứng) trong năm
-  const allCts = [...new Set(invoices.map(i=>i.congtrinh).filter(Boolean))].sort();
+  const allCts = [...new Set(allInvs.map(i=>i.congtrinh).filter(Boolean))].sort();
   const cts = allCts.filter(ct => _entityInYear(ct, 'ct'));
   const loais = [...new Set(yearInvs.map(i=>i.loai))].filter(Boolean).sort();
   const months = [...new Set(yearInvs.map(i=>i.ngay?.slice(0,7)))].filter(Boolean).sort().reverse();
@@ -316,7 +317,7 @@ function filterAndRender() {
   const fCt=document.getElementById('f-ct').value;
   const fLoai=document.getElementById('f-loai').value;
   const fMonth=document.getElementById('f-month').value;
-  filteredInvs = invoices.filter(inv => {
+  filteredInvs = buildInvoices().filter(inv => {
     if(!inActiveYear(inv.ngay)) return false;
     if(fCt && inv.congtrinh!==fCt) return false;
     if(fLoai && inv.loai!==fLoai) return false;
@@ -344,6 +345,13 @@ function renderTable() {
     document.getElementById('pagination').innerHTML=''; return;
   }
   tbody.innerHTML = paged.map(inv=>{
+    const isManual = inv.source === 'manual' || (!inv.source && !inv.ccKey);
+    const isCC     = inv.source === 'cc' || (!inv.source && inv.ccKey);
+    const actionBtn = isManual
+      ? `<button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')" title="Xóa hóa đơn">✕</button>`
+      : isCC
+        ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 7px" onclick="editCCInvoice('${inv.ccKey||inv.id}')" title="Chỉnh sửa tại tab Chấm Công">↩ CC</button>`
+        : `<span style="color:var(--ink3);font-size:11px;padding:0 6px">—</span>`;
     return `<tr>
     <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${inv.ngay}</td>
     <td style="font-weight:600;font-size:12px;max-width:220px">${x(inv.congtrinh)}</td>
@@ -352,7 +360,7 @@ function renderTable() {
     <td class="hide-mobile" style="color:var(--ink2)">${x(inv.ncc||'—')}</td>
     <td style="color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(inv.nd)}">${x(inv.nd||'—')}</td>
     <td class="amount-td" title="Đơn giá: ${numFmt(inv.tien||0)}${inv.sl&&inv.sl!==1?' × '+inv.sl:''}">${numFmt(inv.thanhtien||inv.tien||0)}</td>
-    <td style="white-space:nowrap"><button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
+    <td style="white-space:nowrap">${actionBtn}</td>
   </tr>`;}).join('');
 
   const tp=Math.ceil(filteredInvs.length/PG);
@@ -369,17 +377,24 @@ function renderTable() {
 function goTo(p) { curPage=p; renderTable(); }
 
 function delInvoice(id) {
-  if(!confirm('Xóa hóa đơn này? (Có thể khôi phục từ Thùng Rác)')) return;
   const inv=invoices.find(i=>String(i.id)===String(id));
-  if(inv) trashAdd({...inv});
+  if(!inv) { toast('Không tìm thấy hóa đơn!','error'); return; }
+  // Chỉ cho xóa manual invoice — CC invoices phải xóa từ tab Chấm Công
+  if(inv.ccKey || inv.source==='cc') {
+    toast('⚠️ Không thể xóa hóa đơn từ chấm công! Hãy chỉnh sửa tại tab Chấm Công.','error');
+    return;
+  }
+  if(!confirm('Xóa hóa đơn này? (Có thể khôi phục từ Thùng Rác)')) return;
+  trashAdd({...inv});
   invoices=invoices.filter(i=>String(i.id)!==String(id));
   save('inv_v3',invoices); updateTop(); buildFilters(); filterAndRender(); renderTrash();
   toast('Đã xóa (có thể khôi phục trong Thùng Rác)');
 }
-function editCCInvoice(id) {
-  const inv=invoices.find(i=>String(i.id)===String(id));
-  if(!inv||!inv.ccKey) return;
-  const parts=inv.ccKey.split('|');
+function editCCInvoice(ccKeyOrId) {
+  // ccKey format: 'cc|fromDate|ct|...'
+  const key = String(ccKeyOrId);
+  const parts = key.split('|');
+  if (parts.length < 3 || parts[0] !== 'cc') return;
   const fromDate=parts[1], ct=parts[2];
 
   // 1. Chuyển tab — dùng goPage chuẩn
@@ -473,7 +488,7 @@ function saveEditInvoice(id) {
 function renderCtPage() {
   const grid=document.getElementById('ct-grid');
   const map={};
-  invoices.forEach(inv=>{
+  buildInvoices().forEach(inv=>{
     if(!inActiveYear(inv.ngay)) return;
     if(!map[inv.congtrinh]) map[inv.congtrinh]={total:0,count:0,byLoai:{}};
     map[inv.congtrinh].total+=(inv.thanhtien||inv.tien||0); map[inv.congtrinh].count++;
@@ -500,7 +515,7 @@ function renderCtPage() {
 }
 
 function showCtModal(ctName) {
-  const invs=invoices.filter(i=>i.congtrinh===ctName && inActiveYear(i.ngay));
+  const invs=buildInvoices().filter(i=>i.congtrinh===ctName && inActiveYear(i.ngay));
   document.getElementById('modal-title').textContent='🏗️ '+ctName;
   const byLoai={};
   invs.forEach(inv=>{ if(!byLoai[inv.loai])byLoai[inv.loai]=[]; byLoai[inv.loai].push(inv); });
@@ -674,7 +689,8 @@ function finishEdit(catId,idx) {
   if(cfg&&cfg.refField) {
     invoices.forEach(inv=>{ if(inv[cfg.refField]===old) inv[cfg.refField]=newVal; });
     // also update ung records tp field when nguoiTH or nhaCungCap renamed
-    if(catId==='nguoiTH'||catId==='nhaCungCap') ungRecords.forEach(r=>{ if(r.tp===old) r.tp=newVal; });
+    if(catId==='nguoiTH'||catId==='nhaCungCap') ungRecords.forEach(r=>{ if((r.loai||'thauphu')==='thauphu'&&r.tp===old) r.tp=newVal; });
+    if(catId==='congNhan') ungRecords.forEach(r=>{ if(r.loai==='congnhan'&&r.tp===old) r.tp=newVal; });
     if(catId==='congTrinh') ungRecords.forEach(r=>{ if(r.congtrinh===old) r.congtrinh=newVal; });
   }
   // I.1: Cập nhật ccData + tbData khi đổi tên CT (giới hạn 2 năm)
@@ -729,11 +745,14 @@ function isItemInUse(catId, item) {
     if(catId==='congNhan') return ccData.some(w=>w.workers&&w.workers.some(wk=>wk.name===item));
     return false;
   }
-  // Kiểm tra trong invoices
-  if(invoices.some(i=>(i[cfg.refField]||'')=== item)) return true;
+  // Kiểm tra trong invoices (kể cả CC-derived)
+  if(buildInvoices().some(i=>(i[cfg.refField]||'')=== item)) return true;
   // Kiểm tra trong ungRecords (tp field)
   if(catId==='thauPhu'||catId==='nhaCungCap') {
-    if(ungRecords.some(r=>(r.tp||'')=== item)) return true;
+    if(ungRecords.some(r=>(r.loai||'thauphu')==='thauphu'&&(r.tp||'')=== item)) return true;
+  }
+  if(catId==='congNhan') {
+    if(ungRecords.some(r=>r.loai==='congnhan'&&(r.tp||'')=== item)) return true;
   }
   // Kiểm tra congTrinh trong cc + ung + thietbi
   if(catId==='congTrinh') {
@@ -808,18 +827,39 @@ function initUngTableIfEmpty() {
 
 function addUngRows(n) { for(let i=0;i<n;i++) addUngRow(); }
 
+function onUngLoaiChange(sel) {
+  const tr = sel.closest('tr');
+  const tpInp = tr.querySelector('[data-f="tp"]');
+  const dl = document.getElementById(tpInp.getAttribute('list'));
+  if (!dl) return;
+  const loai = sel.value;
+  const options = loai === 'congnhan' ? cats.congNhan : [...cats.thauPhu, ...cats.nhaCungCap];
+  dl.innerHTML = options.map(v => `<option value="${x(v)}">`).join('');
+  tpInp.value = '';
+  tpInp.placeholder = loai === 'congnhan' ? 'Tên công nhân...' : 'Nhập hoặc chọn...';
+}
+
 function addUngRow(d={}) {
   const tbody = document.getElementById('ung-tbody');
   const num = tbody.children.length + 1;
   const dlTp  = 'dlTP'  + num + Date.now();
   const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.filter(v => _ctInActiveYear(v) || v===(d.congtrinh||'')).map(v=>`<option value="${x(v)}" ${v===(d.congtrinh||'')?'selected':''}>${x(v)}</option>`).join('');
+  const dLoai = d.loai || 'thauphu';
+  const tpOptions = dLoai === 'congnhan' ? cats.congNhan : [...cats.thauPhu, ...cats.nhaCungCap];
+  const tpPlaceholder = dLoai === 'congnhan' ? 'Tên công nhân...' : 'Nhập hoặc chọn...';
 
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="row-num">${num}</td>
+    <td style="padding:0">
+      <select class="cell-input" data-f="loai" style="width:100%;border:none;background:transparent;padding:7px 6px;font-size:12px;font-weight:600;outline:none;color:var(--ink);cursor:pointer" onchange="onUngLoaiChange(this)">
+        <option value="thauphu" ${dLoai==='thauphu'?'selected':''}>Thầu phụ</option>
+        <option value="congnhan" ${dLoai==='congnhan'?'selected':''}>Công nhân</option>
+      </select>
+    </td>
     <td>
-      <input class="cell-input" data-f="tp" list="${dlTp}" value="${x(d.tp||'')}" placeholder="Nhập hoặc chọn...">
-      <datalist id="${dlTp}">${[...cats.thauPhu,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('')}</datalist>
+      <input class="cell-input" data-f="tp" list="${dlTp}" value="${x(d.tp||'')}" placeholder="${tpPlaceholder}">
+      <datalist id="${dlTp}">${tpOptions.map(v=>`<option value="${x(v)}">`).join('')}</datalist>
     </td>
     <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
     <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}" inputmode="decimal"></td>
@@ -855,7 +895,7 @@ function renumberUng() {
 function calcUngSummary() {
   let cnt=0, total=0;
   document.querySelectorAll('#ung-tbody tr').forEach(tr => {
-    const tp = tr.querySelector('[data-f="tp"]')?.value||'';
+    const tp  = tr.querySelector('[data-f="tp"]')?.value||'';
     const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
     if(tp||tien>0) { cnt++; total+=tien; }
   });
@@ -880,6 +920,7 @@ function saveAllUngRows() {
     tr.style.background='';
     ungRecords.unshift({
       id: Date.now()+Math.random(), ngay:date,
+      loai: (tr.querySelector('[data-f="loai"]')?.value||'thauphu'),
       tp,
       congtrinh:(tr.querySelector('[data-f="ct"]')?.value||'').trim(),
       tien,
@@ -918,6 +959,7 @@ function filterAndRenderUng() {
   const fCt=document.getElementById('uf-ct').value;
   const fMonth=document.getElementById('uf-month').value;
   filteredUng = ungRecords.filter(r => {
+    if(r.cancelled) return false;
     if(!inActiveYear(r.ngay)) return false;
     if(fTp && r.tp!==fTp) return false;
     if(fCt && r.congtrinh!==fCt) return false;
@@ -928,46 +970,79 @@ function filterAndRenderUng() {
   renderUngTable();
 }
 
+function _ungSectionHTML(recs, title, accentColor) {
+  if (!recs.length) return '';
+  const mono = "font-family:'IBM Plex Mono',monospace";
+  const sumSec = recs.reduce((s,r)=>s+(r.tien||0),0);
+  return `<div style="margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--bg);border-radius:6px;margin-bottom:8px;border-left:3px solid ${accentColor}">
+      <span style="font-weight:700;font-size:12px;color:var(--ink2)">${title}</span>
+      <span style="${mono};font-size:12px;font-weight:700;color:${accentColor}">${fmtS(sumSec)}</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="records-table">
+        <thead><tr>
+          <th style="width:32px;text-align:center">
+            <input type="checkbox" class="ung-section-chk-all" title="Chọn tất cả"
+              onchange="this.closest('table').querySelectorAll('.ung-row-chk').forEach(c=>c.checked=this.checked)">
+          </th>
+          <th>Ngày</th><th>Người Nhận</th><th>Công Trình</th><th>Nội Dung</th>
+          <th style="text-align:right">Số Tiền Ứng</th><th></th>
+        </tr></thead>
+        <tbody>${recs.map(r=>`<tr>
+          <td style="text-align:center;padding:4px">
+            <input type="checkbox" class="ung-row-chk" data-id="${r.id}" style="width:15px;height:15px;cursor:pointer">
+          </td>
+          <td style="${mono};font-size:11px;color:var(--ink2)">${r.ngay}</td>
+          <td style="font-weight:600;font-size:12px">${x(r.tp)}</td>
+          <td style="color:var(--ink2)">${x(r.congtrinh||'—')}</td>
+          <td style="color:var(--ink2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(r.nd)}">${x(r.nd||'—')}</td>
+          <td class="amount-td" style="color:var(--blue)">${numFmt(r.tien||0)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="delUngRecord('${r.id}')">✕</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderUngTable() {
-  const tbody=document.getElementById('ung-all-tbody');
-  const start=(ungPage-1)*PG;
-  const paged=filteredUng.slice(start,start+PG);
-  const sumTien=filteredUng.reduce((s,r)=>s+r.tien,0);
+  const container = document.getElementById('ung-all-sections');
+  const start = (ungPage-1)*PG;
+  const paged = filteredUng.slice(start, start+PG);
+  const sumTien = filteredUng.reduce((s,r)=>s+(r.tien||0),0);
 
-  if(!paged.length) {
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="7">Không có dữ liệu tiền ứng nào</td></tr>`;
-    document.getElementById('ung-pagination').innerHTML=''; return;
+  if (!paged.length) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink3);font-size:14px">Không có dữ liệu tiền ứng nào</div>`;
+    document.getElementById('ung-pagination').innerHTML = ''; return;
   }
-  tbody.innerHTML = paged.map(r=>`<tr>
-    <td style="text-align:center;padding:4px">
-      <input type="checkbox" class="ung-row-chk" data-id="${r.id}"
-        style="width:15px;height:15px;cursor:pointer">
-    </td>
-    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${r.ngay}</td>
-    <td style="font-weight:600;font-size:12px">${x(r.tp)}</td>
-    <td style="color:var(--ink2)">${x(r.congtrinh||'—')}</td>
-    <td style="color:var(--ink2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(r.nd)}">${x(r.nd||'—')}</td>
-    <td class="amount-td" style="color:var(--blue)">${numFmt(r.tien||0)}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="delUngRecord('${r.id}')">✕</button></td>
-  </tr>`).join('');
 
-  const tp2=Math.ceil(filteredUng.length/PG);
-  let pag=`<span>${filteredUng.length} bản ghi · Tổng tiền ứng: <strong style="color:var(--blue);font-family:'IBM Plex Mono',monospace">${fmtS(sumTien)}</strong></span>`;
-  if(tp2>1) {
-    pag+='<div class="page-btns">';
-    for(let p=1;p<=Math.min(tp2,10);p++) pag+=`<button class="page-btn ${p===ungPage?'active':''}" onclick="goUngTo(${p})">${p}</button>`;
-    pag+='</div>';
+  const tpRecs = paged.filter(r => (r.loai||'thauphu') === 'thauphu');
+  const cnRecs = paged.filter(r => r.loai === 'congnhan');
+
+  container.innerHTML =
+    _ungSectionHTML(tpRecs, 'Thầu Phụ / Nhà Cung Cấp', 'var(--gold)') +
+    _ungSectionHTML(cnRecs, 'Công Nhân', 'var(--blue)');
+
+  const mono = "font-family:'IBM Plex Mono',monospace";
+  const tp2 = Math.ceil(filteredUng.length/PG);
+  let pag = `<span>${filteredUng.length} bản ghi · Tổng tiền ứng: <strong style="color:var(--blue);${mono}">${fmtS(sumTien)}</strong></span>`;
+  if (tp2>1) {
+    pag += '<div class="page-btns">';
+    for (let p=1; p<=Math.min(tp2,10); p++) pag += `<button class="page-btn ${p===ungPage?'active':''}" onclick="goUngTo(${p})">${p}</button>`;
+    pag += '</div>';
   }
-  document.getElementById('ung-pagination').innerHTML=pag;
+  document.getElementById('ung-pagination').innerHTML = pag;
 }
 
 function goUngTo(p) { ungPage=p; renderUngTable(); }
 
 function delUngRecord(id) {
-  if(!confirm('Xóa bản ghi tiền ứng này?')) return;
-  ungRecords=ungRecords.filter(r=>String(r.id)!==String(id));
+  const idx = ungRecords.findIndex(r=>String(r.id)===String(id));
+  if(idx<0) return;
+  if(!confirm('Hủy bản ghi tiền ứng này?\n(Lịch sử sẽ được giữ lại với trạng thái "Đã hủy")')) return;
+  ungRecords[idx] = { ...ungRecords[idx], cancelled: true };
   save('ung_v1',ungRecords); buildUngFilters(); filterAndRenderUng();
-  toast('Đã xóa bản ghi');
+  toast('Đã hủy bản ghi (lịch sử vẫn được lưu)');
 }
 
 function rebuildUngSelects() {
@@ -979,7 +1054,10 @@ function rebuildUngSelects() {
   });
   document.querySelectorAll('#ung-tbody [data-f="tp"]').forEach(inp=>{
     const dl=document.getElementById(inp.getAttribute('list'));
-    if(dl) dl.innerHTML=[...cats.nguoiTH,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('');
+    if(!dl) return;
+    const loai = inp.closest('tr')?.querySelector('[data-f="loai"]')?.value || 'thauphu';
+    const opts = loai === 'congnhan' ? cats.congNhan : [...cats.thauPhu,...cats.nhaCungCap];
+    dl.innerHTML = opts.map(v=>`<option value="${x(v)}">`).join('');
   });
 }
 
@@ -1015,7 +1093,7 @@ function exportEntryCSV() {
   dlCSV(rows,'nhap_'+today()+'.csv');
 }
 function exportAllCSV() {
-  const src=filteredInvs.length>0?filteredInvs:invoices;
+  const src=filteredInvs.length>0?filteredInvs:buildInvoices();
   const rows=[['Ngày','Công Trình','Loại Chi Phí','Người TH','Nhà Cung Cấp','Nội Dung','Số Tiền']];
   src.forEach(i=>rows.push([i.ngay,i.congtrinh,i.loai,i.nguoi,i.ncc||'',i.nd,i.tien||i.thanhtien||0]));
   dlCSV(rows,'hoa_don_'+today()+'.csv');
@@ -1416,85 +1494,9 @@ function _confirmImport() {
   if(c.ncc && c.ncc.length)   { const cur=load('cat_ncc',DEFAULTS.nhaCungCap); const merged=[...new Set([...cur,...c.ncc])]; localStorage.setItem('cat_ncc',JSON.stringify(merged)); cats.nhaCungCap=merged; }
   if(c.nguoi && c.nguoi.length){ const cur=load('cat_nguoi',DEFAULTS.nguoiTH); const merged=[...new Set([...cur,...c.nguoi])]; localStorage.setItem('cat_nguoi',JSON.stringify(merged)); cats.nguoiTH=merged; }
 
-  // ── Xử lý Chấm Công import: sinh HĐ nhân công đúng như saveCCWeek ──
-  let builtMsg = '';
+  // ── Xử lý Chấm Công import: chỉ cập nhật danh mục, HĐ tính động qua buildInvoices() ──
   if(result.cc.length) {
-    let totalWeeks = 0, totalHdml = 0;
-
-    result.cc.forEach(week => {
-      const { fromDate, ct, workers } = week;
-      if(!fromDate || !ct || !workers || !workers.length) return;
-
-      // Tính toDate (T7 = fromDate + 6 ngày) nếu trống
-      let toDate = week.toDate;
-      if(!toDate) {
-        try {
-          const [y,m,d] = fromDate.split('-').map(Number);
-          const sat = new Date(y, m-1, d+6);
-          toDate = sat.getFullYear() + '-' +
-            String(sat.getMonth()+1).padStart(2,'0') + '-' +
-            String(sat.getDate()).padStart(2,'0');
-        } catch(e) { toDate = fromDate; }
-      }
-
-      const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
-
-      // Xóa HĐ cũ của tuần này nếu đã tồn tại (tránh duplicate khi import lại)
-      invoices = invoices.filter(i => !i.ccKey || !i.ccKey.startsWith(weekPrefix));
-
-      // HĐ Mua Lẻ — mỗi worker có hdmuale > 0
-      workers.forEach(wk => {
-        if(!wk.hdmuale || wk.hdmuale <= 0) return;
-        const key = weekPrefix + wk.name + '|hdml';
-        invoices.unshift({
-          id: Date.now() + Math.random(),
-          ccKey: key,
-          ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
-          nguoi: wk.name, ncc: '',
-          nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
-          tien: wk.hdmuale, thanhtien: wk.hdmuale,
-          _ts: Date.now()
-        });
-        totalHdml++;
-      });
-
-      // HĐ Nhân Công — 1 HĐ tổng mỗi tuần+CT
-      const totalLuong = workers.reduce((s, wk) => {
-        const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
-        return s + tc * (wk.luong || 0) + (wk.phucap || 0);
-      }, 0);
-
-      if(totalLuong > 0) {
-        const ncKey = weekPrefix + 'nhanCong';
-        const firstWorker = (workers.find(w => w.name) || {name:''}).name;
-        invoices.unshift({
-          id: Date.now() + Math.random(),
-          ccKey: ncKey,
-          ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
-          nguoi: firstWorker, ncc: '',
-          nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
-          tien: totalLuong, thanhtien: totalLuong,
-          _ts: Date.now()
-        });
-        totalWeeks++;
-      }
-
-      // Cập nhật danh mục công trình + công nhân
-      if(!cats.congTrinh.includes(ct)) { cats.congTrinh.push(ct); cats.congTrinh.sort(); }
-      workers.forEach(wk => {
-        if(wk.name && !cats.nguoiTH.includes(wk.name)) cats.nguoiTH.push(wk.name);
-        if(wk.name && !cats.congNhan.includes(wk.name)) cats.congNhan.push(wk.name);
-      });
-    });
-
-    // Lưu lại invoices đã được bổ sung HĐ nhân công
-    save('inv_v3', invoices);
-    // Lưu danh mục đã cập nhật
-    localStorage.setItem('cat_ct',   JSON.stringify(cats.congTrinh));
-    localStorage.setItem('cat_nguoi', JSON.stringify(cats.nguoiTH.sort()));
-    localStorage.setItem('cat_cn',   JSON.stringify(cats.congNhan.sort()));
-
-    builtMsg = ' | ' + totalWeeks + ' HĐ lương' + (totalHdml ? ' + ' + totalHdml + ' HĐ lẻ' : '');
+    rebuildCCCategories();
   }
 
   buildYearSelect();
@@ -1504,7 +1506,7 @@ function _confirmImport() {
   buildUngFilters(); filterAndRenderUng();
   renderCtPage(); renderSettings(); updateTop();
 
-  toast('✅ Import thành công!' + builtMsg, 'success');
+  toast('✅ Import thành công!', 'success');
 
   // Push lên Firebase tất cả các năm có trong data
   if(fbReady()) {
@@ -1787,9 +1789,6 @@ function _confirmDelete() {
     const before = ccData.length;
     ccData = ccData.filter(w=>!filterY(w.fromDate));
     save('cc_v2', ccData);
-    // Rebuild HĐ auto sau khi xóa CC
-    rebuildInvoicesFromCC();
-    invoices = load('inv_v3', []);
     msg.push(`${before-ccData.length} tuần CC`);
   }
   if(delTb) {

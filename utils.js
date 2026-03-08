@@ -33,8 +33,65 @@ function dlCSV(rows,name) {
 //  HELPERS
 // ══════════════════════════════
 function updateTop() {
-  const total = invoices.filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
+  const total = buildInvoices().filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
   document.getElementById('top-total').textContent=fmtS(total);
+}
+
+// ══════════════════════════════════════════════════════════════
+// [buildInvoices] — Tổng hợp invoice từ data gốc (không lưu vào inv_v3)
+// Trả về: manual invoices (source='manual') + CC invoices (source='cc')
+// Tất cả module hiển thị chi phí phải dùng hàm này thay vì đọc invoices trực tiếp
+// ══════════════════════════════════════════════════════════════
+function buildInvoices() {
+  // 1. Manual invoices — chỉ những HĐ nhập tay, không có ccKey
+  const manual = invoices.map(inv => ({ ...inv, source: 'manual' }));
+
+  // 2. CC-derived invoices — tính động từ ccData, không lưu vào inv_v3
+  const ccInvs = [];
+  const _vi = ds => {
+    const [,m,d] = ds.split('-').map(Number);
+    return (d<10?'0':'')+d+'/'+(m<10?'0':'')+m;
+  };
+  const _ccData = (typeof ccData !== 'undefined') ? ccData : [];
+  _ccData.forEach(week => {
+    const { fromDate, ct, workers } = week;
+    if (!fromDate || !ct || !workers || !workers.length) return;
+    let toDate = week.toDate;
+    if (!toDate) {
+      const [y,m,d] = fromDate.split('-').map(Number);
+      const sat = new Date(y,m-1,d+6);
+      toDate = sat.getFullYear()+'-'+String(sat.getMonth()+1).padStart(2,'0')+'-'+String(sat.getDate()).padStart(2,'0');
+    }
+    const pfx = 'cc|'+fromDate+'|'+ct+'|';
+    // HĐ Mua Lẻ — 1 dòng mỗi công nhân có hdmuale > 0
+    workers.forEach(wk => {
+      if (!wk.hdmuale || wk.hdmuale <= 0) return;
+      const key = pfx+wk.name+'|hdml';
+      ccInvs.push({ id:key, ccKey:key, source:'cc',
+        ngay:toDate, congtrinh:ct, loai:'Hóa Đơn Lẻ',
+        nguoi:wk.name, ncc:'',
+        nd: wk.nd || ('HĐ mua lẻ – '+wk.name+' ('+_vi(fromDate)+'–'+_vi(toDate)+')'),
+        tien:wk.hdmuale, thanhtien:wk.hdmuale, _ts:0
+      });
+    });
+    // HĐ Nhân Công — 1 dòng mỗi tuần+CT
+    const totalLuong = workers.reduce((s,wk)=>{
+      const tc=(wk.d||[]).reduce((a,v)=>a+(v||0),0);
+      return s+tc*(wk.luong||0)+(wk.phucap||0);
+    },0);
+    if (totalLuong > 0) {
+      const ncKey = pfx+'nhanCong';
+      const fw = (workers.find(w=>w.name)||{name:''}).name;
+      ccInvs.push({ id:ncKey, ccKey:ncKey, source:'cc',
+        ngay:toDate, congtrinh:ct, loai:'Nhân Công',
+        nguoi:fw, ncc:'',
+        nd:'Lương tuần '+_vi(fromDate)+'–'+_vi(toDate),
+        tien:totalLuong, thanhtien:totalLuong, _ts:0
+      });
+    }
+  });
+
+  return [...manual, ...ccInvs];
 }
 function numFmt(n){ if(!n&&n!==0)return''; return parseInt(n,10).toLocaleString('vi-VN'); }
 function fmtM(n){ if(!n)return'0 đ'; return parseInt(n).toLocaleString('vi-VN')+' đ'; }

@@ -15,10 +15,10 @@ function renderDashboard() {
   _dbPopulateCTFilter();
 
   // Tầng 1: tổng quan năm (không filter CT)
-  const dataYear = invoices.filter(i => inActiveYear(i.ngay));
+  const dataYear = buildInvoices().filter(i => inActiveYear(i.ngay));
 
   // Tầng 2: chi tiết theo CT (có filter)
-  const dataDetail = invoices.filter(i =>
+  const dataDetail = buildInvoices().filter(i =>
     inActiveYear(i.ngay) &&
     (!selectedCT || i.congtrinh === selectedCT)
   );
@@ -51,7 +51,7 @@ function _dbPopulateCTFilter() {
   if (!sel) return;
   const cts = [...new Set([
     ...cats.congTrinh,
-    ...invoices.filter(i => inActiveYear(i.ngay)).map(i => i.congtrinh)
+    ...buildInvoices().filter(i => inActiveYear(i.ngay)).map(i => i.congtrinh)
   ].filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi'));
   sel.innerHTML = '<option value="">-- Tất cả công trình --</option>' +
     cts.map(v => `<option value="${x(v)}">${x(v)}</option>`).join('');
@@ -252,6 +252,7 @@ function _dbUngByCT() {
   if (!wrap) return;
 
   const filtered = ungRecords.filter(r =>
+    !r.cancelled &&
     inActiveYear(r.ngay) &&
     (!selectedCT || r.congtrinh === selectedCT)
   );
@@ -416,7 +417,7 @@ function _readMoneyInput(id) {
 // ── Populate CT selects trong tab Doanh Thu ───────────────────
 function dtPopulateSels() {
   const allCts = [...new Set([...cats.congTrinh,
-    ...invoices.map(i => i.congtrinh),
+    ...buildInvoices().map(i => i.congtrinh),
     ...thuRecords.map(r => r.congtrinh)
   ].filter(Boolean))].sort();
 
@@ -561,7 +562,7 @@ function renderLaiLo() {
 
   // Tổng chi theo CT trong năm đang chọn
   const tongChi = {};
-  invoices.filter(i => inActiveYear(i.ngay)).forEach(i => {
+  buildInvoices().filter(i => inActiveYear(i.ngay)).forEach(i => {
     const ct = i.congtrinh || '(Không rõ)';
     tongChi[ct] = (tongChi[ct] || 0) + (i.thanhtien || i.tien || 0);
   });

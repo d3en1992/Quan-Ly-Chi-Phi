@@ -8,79 +8,6 @@
 // ══════════════════════════════════════════════════════════════════
 let ccData   = load('cc_v2', []);
 let ccOffset = 0;
-
-// Tự động rebuild HĐ nhân công nếu có CC data mà thiếu HĐ (gọi sau khi mọi data đã load)
-function autoRebuildCCIfNeeded() {
-  if (!ccData.length) return;
-
-  // Bước 1: Xóa HĐ auto bị lỗi ngay='' (do import cũ thiếu toDate)
-  const badInvs = invoices.filter(i => i.ccKey && !i.ngay);
-  if (badInvs.length > 0) {
-    invoices = invoices.filter(i => !(i.ccKey && !i.ngay));
-    save('inv_v3', invoices);
-    console.log('[autoRebuild] Cleared', badInvs.length, 'bad invs (ngay empty)');
-  }
-
-  // Bước 2: Tìm các tuần CC chưa có HĐ tương ứng trong invoices
-  let totalFixed = 0;
-  ccData.forEach(week => {
-    const { fromDate, ct, workers } = week;
-    if(!fromDate || !ct || !workers || !workers.length) return;
-    const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
-    const ncKey = weekPrefix + 'nhanCong';
-
-    // Nếu tuần này đã có HĐ nhân công → bỏ qua
-    if(invoices.some(i => i.ccKey === ncKey)) return;
-
-    // Tính toDate
-    let toDate = week.toDate;
-    if(!toDate) {
-      try {
-        const [y,m,d] = fromDate.split('-').map(Number);
-        const sat = new Date(y, m-1, d+6);
-        toDate = sat.getFullYear() + '-' +
-          String(sat.getMonth()+1).padStart(2,'0') + '-' +
-          String(sat.getDate()).padStart(2,'0');
-      } catch(e) { toDate = fromDate; }
-    }
-
-    // Tạo HĐ mua lẻ còn thiếu
-    workers.forEach(wk => {
-      if(!wk.hdmuale || wk.hdmuale <= 0) return;
-      const key = weekPrefix + wk.name + '|hdml';
-      if(invoices.some(i => i.ccKey === key)) return;
-      invoices.unshift({
-        id: Date.now() + Math.random(), ccKey: key,
-        ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
-        nguoi: wk.name, ncc: '',
-        nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
-        tien: wk.hdmuale, thanhtien: wk.hdmuale, _ts: Date.now()
-      });
-    });
-
-    // Tạo HĐ nhân công
-    const totalLuong = workers.reduce((s, wk) => {
-      const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
-      return s + tc * (wk.luong || 0) + (wk.phucap || 0);
-    }, 0);
-    if(totalLuong > 0) {
-      const firstWorker = (workers.find(w => w.name) || {name:''}).name;
-      invoices.unshift({
-        id: Date.now() + Math.random(), ccKey: ncKey,
-        ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
-        nguoi: firstWorker, ncc: '',
-        nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
-        tien: totalLuong, thanhtien: totalLuong, _ts: Date.now()
-      });
-      totalFixed++;
-    }
-  });
-
-  if(totalFixed > 0 || badInvs.length > 0) {
-    save('inv_v3', invoices);
-    console.log('[autoRebuild] Fixed ' + totalFixed + ' missing weeks, cleared ' + badInvs.length + ' bad');
-  }
-}
 let ccHistPage = 1, ccTltPage = 1;
 const CC_PG_HIST = 30;
 const CC_PG_TLT = 20;
@@ -195,7 +122,7 @@ function loadCCWeekForm(){
     // Auto-copy workers from most recent week of same CT (names+luong only, clear days/extra)
     const prev=ccData.filter(w=>w.ct===ct&&w.fromDate<f).sort((a,b)=>b.fromDate.localeCompare(a.fromDate))[0];
     if(prev){
-      const stub=prev.workers.map(wk=>({name:wk.name,luong:wk.luong,d:[0,0,0,0,0,0,0],phucap:0,hdmuale:0,nd:''}));
+      const stub=prev.workers.map(wk=>({name:wk.name,luong:wk.luong,d:[0,0,0,0,0,0,0],phucap:0,hdmuale:0,nd:'',role:wk.role||'',tru:0}));
       buildCCTable(stub);
     } else {
       buildCCTable([]);
@@ -225,6 +152,7 @@ function buildCCTable(workers){
     <th class="col-total-luong" style="text-align:right;${BG}">Tổng Lương</th>
     <th class="col-phucap" style="text-align:right;${BG}">Phụ Cấp</th>
     <th class="col-hdml" style="text-align:right;${BG}">HĐ Mua Lẻ</th>
+    <th class="col-tru" style="text-align:right;${BG};color:var(--red)">Trừ</th>
     <th class="col-nd" style="${BG}">Nội Dung</th>
     <th class="col-total cc-sticky-total" style="text-align:right;background:#c8870a;color:#fff;font-weight:700">Tổng Cộng</th>
     <th class="col-del" style="${BG}"></th>
@@ -257,6 +185,7 @@ function buildCCRow(w,num){
   const luong=w?(w.luong||0):0;
   const phucap=w?(w.phucap||0):0;
   const hdml=w?(w.hdmuale||0):0;
+  const tru=w?(w.tru||0):0;
   const role=w?.role||(w?.name?cnRoles[w.name]||'':'');
   const isKnown=w?.name?cats.congNhan.some(n=>n.toLowerCase()===(w.name||'').toLowerCase()):false;
 
@@ -264,8 +193,7 @@ function buildCCRow(w,num){
     <td class="row-num col-num">${num}</td>
     <td class="cc-sticky-name col-name" style="padding:0">
       <input class="cc-name-input" data-cc="name" list="cc-name-dl"
-        value="${x(w?w.name||'':''||'')}" placeholder="Tên..."
-        oninput="onCCNameInput(this)">
+        value="${x(w?w.name||'':''||'')}" placeholder="Tên...">
     </td>
     <td class="col-tp" style="padding:0">
       <select data-cc="tp" ${isKnown?'disabled':''} style="width:100%;border:none;background:transparent;padding:5px 4px;font-size:12px;font-weight:700;outline:none;color:var(--ink);${isKnown?'opacity:0.65;cursor:not-allowed':'cursor:pointer'}">
@@ -276,19 +204,20 @@ function buildCCRow(w,num){
       </select>
     </td>
     ${ds.map((v,i)=>`<td class="col-day" style="padding:0"><input class="cc-day-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
-      data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off" inputmode="decimal"
-      oninput="onCCDayKey(this)"></td>`).join('')}
+      data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off" inputmode="decimal"></td>`).join('')}
     <td class="cc-tc-cell col-tc" data-cc="tc">0</td>
     <td class="col-luong" style="padding:0"><input class="cc-wage-input" data-cc="luong" data-raw="${luong||''}" inputmode="decimal"
-      value="${luong?numFmt(luong):''}" placeholder="0" oninput="onCCWageKey(this)"></td>
+      value="${luong?numFmt(luong):''}" placeholder="0"></td>
     <td class="cc-total-cell col-total-luong" data-cc="total">—</td>
     <td class="col-phucap" style="padding:0"><input class="cc-wage-input" data-cc="phucap" data-raw="${phucap||''}" inputmode="decimal"
-      value="${phucap?numFmt(phucap):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
+      value="${phucap?numFmt(phucap):''}" placeholder="0"></td>
     <td class="col-hdml" style="padding:0"><input class="cc-wage-input" data-cc="hdml" data-raw="${hdml||''}" inputmode="decimal"
-      value="${hdml?numFmt(hdml):''}" placeholder="0" oninput="onCCMoneyKey(this)"></td>
+      value="${hdml?numFmt(hdml):''}" placeholder="0"></td>
+    <td class="col-tru" style="padding:0"><input class="cc-wage-input" data-cc="tru" data-raw="${tru||''}" inputmode="decimal"
+      value="${tru?numFmt(tru):''}" placeholder="0" style="color:var(--red)"></td>
     <td class="col-nd" style="padding:0"><input class="cc-name-input" data-cc="nd"
       value="${x(w?w.nd||'':''||'')}" placeholder="Nội dung..."
-      style="font-size:11px" oninput="updateCCSumRow()"></td>
+      style="font-size:11px"></td>
     <td class="cc-total-cell col-total cc-sticky-total" data-cc="tongcong" style="color:var(--gold);font-size:13px">—</td>
     <td class="col-del"><button class="del-btn" onclick="delCCRow(this)">✕</button></td>
   `;
@@ -296,7 +225,8 @@ function buildCCRow(w,num){
   tr.querySelector('[data-cc="luong"]').addEventListener('input',function(){ onCCWageKey(this); updateCCSumRow(); });
   tr.querySelector('[data-cc="phucap"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
   tr.querySelector('[data-cc="hdml"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
-  tr.querySelector('[data-cc="name"]').addEventListener('input',updateCCSumRow);
+  tr.querySelector('[data-cc="tru"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
+  tr.querySelector('[data-cc="name"]').addEventListener('input',function(){ onCCNameInput(this); updateCCSumRow(); });
   tr.querySelector('[data-cc="nd"]').addEventListener('input',updateCCSumRow);
   calcCCRow(tr);
   return tr;
@@ -379,7 +309,7 @@ function renumberCC(){
 function updateCCSumRow(){
   const rows=document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)');
   const dayT=new Array(7).fill(0);
-  let tc=0,totalLuong=0,totalPC=0,totalHD=0,totalTC=0;
+  let tc=0,totalLuong=0,totalPC=0,totalHD=0,totalTru=0,totalTC=0;
   rows.forEach(tr=>{
     for(let i=0;i<7;i++) dayT[i]+=parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0;
     const t=parseFloat(tr.querySelector('[data-cc="tc"]')?.textContent||0)||0;
@@ -387,7 +317,8 @@ function updateCCSumRow(){
     const l=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
     const pc=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
     const hd=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
-    totalLuong+=t*l; totalPC+=pc; totalHD+=hd;
+    const tru=parseInt(tr.querySelector('[data-cc="tru"]')?.dataset?.raw||0)||0;
+    totalLuong+=t*l; totalPC+=pc; totalHD+=hd; totalTru+=tru;
     totalTC+=t*l+pc+hd;
   });
   let sumRow=document.querySelector('#cc-tbody .cc-sum-row');
@@ -403,6 +334,7 @@ function updateCCSumRow(){
     <td class="col-total-luong" style="text-align:right;${mono};font-size:13px;color:var(--green);padding:6px 8px;white-space:nowrap">${totalLuong>0?numFmt(totalLuong):'—'}</td>
     <td class="col-phucap" style="text-align:right;${mono};font-size:12px;color:var(--blue);padding:6px 8px;white-space:nowrap">${totalPC>0?numFmt(totalPC):'—'}</td>
     <td class="col-hdml" style="text-align:right;${mono};font-size:12px;color:var(--ink2);padding:6px 8px;white-space:nowrap">${totalHD>0?numFmt(totalHD):'—'}</td>
+    <td class="col-tru" style="text-align:right;${mono};font-size:12px;color:var(--red);padding:6px 8px;white-space:nowrap">${totalTru>0?numFmt(totalTru):'—'}</td>
     <td class="col-nd"></td>
     <td class="col-total cc-sticky-total" style="text-align:right;${mono};font-size:14px;color:var(--gold);padding:6px 8px;white-space:nowrap;background:#fff8e8">${totalTC>0?numFmt(totalTC):'—'}</td>
     <td class="col-del"></td>
@@ -413,133 +345,41 @@ function updateCCSumRow(){
 }
 
 // ─── save ─────────────────────────────────────────────────────────
-// Helper: upsert an invoice by ccKey (create or update in-place)
-function ccUpsertInvoice(ccKey, invData){
-  const idx=invoices.findIndex(i=>i.ccKey===ccKey);
-  if(idx>=0){ Object.assign(invoices[idx], invData); }
-  else { invoices.unshift({id:Date.now()+Math.random(), ccKey, ...invData}); }
-}
-// Helper: remove invoices matching a ccKey prefix
-function ccRemoveInvoicesByKeyPrefix(prefix){
-  invoices=invoices.filter(i=>!i.ccKey||!i.ccKey.startsWith(prefix));
-}
 
-// ── Tự động tạo hóa đơn + cập nhật danh mục từ toàn bộ ccData ───────
-// Gọi sau khi import/sync để không cần lưu từng tuần thủ công
-function rebuildInvoicesFromCC() {
-  // Xóa toàn bộ hóa đơn tự động từ CC cũ (có ccKey)
-  invoices = invoices.filter(i => !i.ccKey);
-
-  let totalWeeks = 0, totalHdml = 0;
-
-  // ── Tự động thêm công trình mới vào danh mục ──────────────────────
+// ── Cập nhật danh mục từ toàn bộ ccData (không tạo HĐ nữa) ──────────
+// Gọi sau khi import/sync để cập nhật danh mục CT, CN, TP
+function rebuildCCCategories() {
+  // Tự động thêm công trình mới vào danh mục
   const newCTs = [...new Set(ccData.map(w => w.ct).filter(Boolean))];
   let addedCTs = 0;
   newCTs.forEach(ct => {
-    if (!cats.congTrinh.includes(ct)) {
-      cats.congTrinh.push(ct);
-      addedCTs++;
-    }
+    if (!cats.congTrinh.includes(ct)) { cats.congTrinh.push(ct); addedCTs++; }
   });
-  if (addedCTs > 0) {
-    cats.congTrinh.sort();
-    localStorage.setItem('cat_ct', JSON.stringify(cats.congTrinh));
-  }
+  if (addedCTs > 0) { cats.congTrinh.sort(); localStorage.setItem('cat_ct', JSON.stringify(cats.congTrinh)); }
 
-  // ── Tự động thêm tên công nhân vào danh mục Người TH ─────────────
+  // Tự động thêm tên công nhân vào danh mục Người TH và Công Nhân
   const allWorkerNames = [...new Set(
     ccData.flatMap(w => (w.workers || []).map(wk => wk.name).filter(Boolean))
   )];
   let addedNames = 0;
   allWorkerNames.forEach(name => {
-    if (!cats.nguoiTH.includes(name)) {
-      cats.nguoiTH.push(name);
-      addedNames++;
-    }
+    if (!cats.nguoiTH.includes(name)) { cats.nguoiTH.push(name); addedNames++; }
+    if (!cats.congNhan.includes(name)) cats.congNhan.push(name);
   });
-  if (addedNames > 0) {
-    cats.nguoiTH.sort();
-    localStorage.setItem('cat_nguoi', JSON.stringify(cats.nguoiTH));
-  }
+  if (addedNames > 0) { cats.nguoiTH.sort(); localStorage.setItem('cat_nguoi', JSON.stringify(cats.nguoiTH)); }
+  if (cats.congNhan.length > 0) { cats.congNhan.sort(); localStorage.setItem('cat_cn', JSON.stringify(cats.congNhan)); }
 
-  // ── Tự động thêm tên TP/NCC từ tiền ứng vào danh mục Thầu Phụ ────
-  const allTPs = [...new Set(ungRecords.map(r => r.tp).filter(Boolean))];
+  // Tự động thêm tên TP/NCC từ tiền ứng vào danh mục Thầu Phụ (chỉ loai thauphu)
+  const allTPs = [...new Set((typeof ungRecords !== 'undefined' ? ungRecords : [])
+    .filter(r=>(r.loai||'thauphu')!=='congnhan')
+    .map(r => r.tp).filter(Boolean))];
   let addedTPs = 0;
   allTPs.forEach(tp => {
-    if (!cats.thauPhu.includes(tp)) {
-      cats.thauPhu.push(tp);
-      addedTPs++;
-    }
+    if (!cats.thauPhu.includes(tp)) { cats.thauPhu.push(tp); addedTPs++; }
   });
-  if (addedTPs > 0) {
-    cats.thauPhu.sort();
-    localStorage.setItem('cat_tp', JSON.stringify(cats.thauPhu));
-  }
+  if (addedTPs > 0) { cats.thauPhu.sort(); localStorage.setItem('cat_tp', JSON.stringify(cats.thauPhu)); }
 
-  // ── Tự động thêm tên công nhân vào danh mục Công Nhân ───────────
-  allWorkerNames.forEach(name => {
-    if (!cats.congNhan.includes(name)) {
-      cats.congNhan.push(name);
-    }
-  });
-  if (cats.congNhan.length > 0) {
-    cats.congNhan.sort();
-    localStorage.setItem('cat_cn', JSON.stringify(cats.congNhan));
-  }
-
-  // ── Tạo hóa đơn từ chấm công ──────────────────────────────────────
-  ccData.forEach(week => {
-    const { fromDate, ct, workers } = week;
-    if (!fromDate || !ct || !workers || !workers.length) return;
-    const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
-
-    // Tính toDate từ fromDate nếu trống (fromDate=CN, toDate=T7 = +6 ngày)
-    let toDate = week.toDate;
-    if (!toDate) {
-      try {
-        const [y,m,d] = fromDate.split('-').map(Number);
-        const sat = new Date(y, m-1, d+6);
-        toDate = sat.getFullYear() + '-' +
-          String(sat.getMonth()+1).padStart(2,'0') + '-' +
-          String(sat.getDate()).padStart(2,'0');
-      } catch(e) { toDate = fromDate; }
-    }
-
-    // HĐ Mua Lẻ — 1 HĐ mỗi worker có hdmuale > 0
-    workers.forEach(wk => {
-      if (!wk.hdmuale || wk.hdmuale <= 0) return;
-      const key = weekPrefix + wk.name + '|hdml';
-      ccUpsertInvoice(key, {
-        ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
-        nguoi: wk.name, ncc: '',
-        nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
-        tien: wk.hdmuale, thanhtien: wk.hdmuale
-      });
-      totalHdml++;
-    });
-
-    // HĐ Nhân Công — 1 HĐ mỗi tuần+ct
-    const totalLuong = workers.reduce((s, wk) => {
-      const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
-      return s + tc * (wk.luong || 0) + (wk.phucap || 0);
-    }, 0);
-
-    if (totalLuong > 0) {
-      const ncKey = weekPrefix + 'nhanCong';
-      const firstWorker = (workers.find(w => w.name) || { name: '' }).name;
-      ccUpsertInvoice(ncKey, {
-        ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
-        nguoi: firstWorker, ncc: '',
-        nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
-        tien: totalLuong, thanhtien: totalLuong
-      });
-      totalWeeks++;
-    }
-  });
-
-  save('inv_v3', invoices);
-  updateTop();
-  return { weeks: totalWeeks, hdml: totalHdml, cts: addedCTs, names: addedNames };
+  return { cts: addedCTs, names: addedNames, tps: addedTPs };
 }
 
 function saveCCWeek(){
@@ -566,17 +406,19 @@ function saveCCWeek(){
     const luong=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
     const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
     const hdmuale=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    const tru=parseInt(tr.querySelector('[data-cc="tru"]')?.dataset?.raw||0)||0;
     const nd=(tr.querySelector('[data-cc="nd"]')?.value?.trim()||'');
     const role=tr.querySelector('[data-cc="tp"]')?.value||'';
     const d=[];
     for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
-    if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd,role});
+    if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd,role,tru});
   });
   if(!workers.length){ toast('Chưa có công nhân nào!','error'); return; }
 
-  // Save CC data
+  // Save CC data — preserve existing id to keep Firebase sync stable
+  const _existingCC=ccData.find(w=>w.fromDate===fromDate&&w.ct===ct);
   ccData=ccData.filter(w=>!(w.fromDate===fromDate&&w.ct===ct));
-  ccData.unshift({id:Date.now(), fromDate, toDate, ct, workers});
+  ccData.unshift({id:_existingCC?.id||Date.now(), updatedAt:Date.now(), fromDate, toDate, ct, workers});
   save('cc_v2',ccData);
 
   // ── Tự động thêm tên mới + vai trò vào danh mục Công Nhân ───────
@@ -589,55 +431,17 @@ function saveCCWeek(){
   });
   if(cnUpdated){ cats.congNhan.sort(); save('cat_cn',cats.congNhan); save('cat_cn_roles',cnRoles); }
 
-  // ── UPSERT HĐ Mua Lẻ to invoices (one per worker with hdmuale > 0) ──
-  // First, remove old hdml invoices for workers no longer having hdmuale
-  const weekPrefix='cc|'+fromDate+'|'+ct+'|';
-  // Remove hdml keys for workers not in current list or with 0 amount
-  const activeHdmlKeys=new Set(workers.filter(w=>w.hdmuale>0).map(w=>weekPrefix+w.name+'|hdml'));
-  invoices=invoices.filter(i=>{
-    if(!i.ccKey||!i.ccKey.startsWith(weekPrefix)) return true;
-    if(!i.ccKey.endsWith('|hdml')) return true;
-    return activeHdmlKeys.has(i.ccKey);
-  });
-  let hdCount=0;
-  workers.forEach(wk=>{
-    if(!wk.hdmuale||wk.hdmuale<=0) return;
-    const key=weekPrefix+wk.name+'|hdml';
-    ccUpsertInvoice(key,{
-      ngay:toDate, congtrinh:ct, loai:'Hóa Đơn Lẻ',
-      nguoi:wk.name, ncc:'',
-      nd:wk.nd||('HĐ mua lẻ – '+wk.name+' ('+viShort(fromDate)+'–'+viShort(toDate)+')'),
-      tien:wk.hdmuale, thanhtien:wk.hdmuale
-    });
-    hdCount++;
-  });
-
-  // ── UPSERT Nhân Công invoice for the whole week ──
-  // One invoice per week+ct, Người TH = tên công nhân đầu tiên
-  const ncKey=weekPrefix+'nhanCong';
-  const totalLuong=workers.reduce((s,wk)=>{ const tc=wk.d.reduce((a,v)=>a+v,0); return s+tc*wk.luong+(wk.phucap||0); },0);
-  const firstWorker=(workers.find(w=>w.name)||{name:''}).name;
-  const ndNhanCong='Lương tuần '+viShort(fromDate)+'–'+viShort(toDate);
-  if(totalLuong>0){
-    ccUpsertInvoice(ncKey,{
-      ngay:toDate, congtrinh:ct, loai:'Nhân Công',
-      nguoi:firstWorker, ncc:'',
-      nd:ndNhanCong,
-      tien:totalLuong, thanhtien:totalLuong
-    });
-  } else {
-    // if total = 0, remove the NC invoice
-    invoices=invoices.filter(i=>i.ccKey!==ncKey);
-  }
-
-  save('inv_v3',invoices); updateTop();
+  // HĐ nhân công và HĐ lẻ không còn lưu vào invoices nữa —
+  // chúng được tính động qua buildInvoices() từ ccData
+  updateTop();
 
   rebuildCCNameList();
   populateCCCtSel();
-  // Chỉ cập nhật dropdown filter, KHÔNG render toàn bộ bảng lịch sử
   document.getElementById('cc-hist-week').value = fromDate;
   document.getElementById('cc-tlt-week').value  = fromDate;
-  buildCCHistFilters();
+  renderCCHistory();  // cập nhật bảng lịch sử và TLT sau khi lưu
+  const totalLuong=workers.reduce((s,wk)=>{ const tc=wk.d.reduce((a,v)=>a+v,0); return s+tc*(wk.luong||0)+(wk.phucap||0); },0);
+  const hdCount=workers.filter(w=>w.hdmuale>0).length;
   const msg=`✅ Đã lưu ${viShort(fromDate)}–${viShort(toDate)} [${ct}]`
     +(hdCount?` · ${hdCount} HĐ lẻ`:'')
     +(totalLuong>0?' · Nhân công cập nhật':'');
@@ -659,7 +463,9 @@ function copyCCWeek(){
     const nd=tr.querySelector('[data-cc="nd"]')?.value?.trim()||'';
     const d=[];
     for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
-    if(name||luong>0||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd});
+    const truCopy=parseInt(tr.querySelector('[data-cc="tru"]')?.dataset?.raw||0)||0;
+    const roleCopy=tr.querySelector('[data-cc="tp"]')?.value||'';
+    if(name||luong>0||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd,role:roleCopy,tru:truCopy});
   });
   if(!workers.length){toast('Bảng trống, chưa có gì để copy!','error');return;}
   ccClipboard=workers;
@@ -670,7 +476,7 @@ function copyCCWeek(){
 function pasteCCWeek(){
   if(!ccClipboard||!ccClipboard.length){toast('Chưa copy tuần nào!','error');return;}
   // Dán toàn bộ: tên, lương, ngày công, phụ cấp, HĐ lẻ, nội dung
-  buildCCTable(ccClipboard.map(w=>({...w})));
+  buildCCTable(ccClipboard.map(w=>({...w, tru:0})));
   toast('📌 Đã dán '+ccClipboard.length+' công nhân đầy đủ ngày công!','success');
 }
 
@@ -829,13 +635,14 @@ function renderCCTLT(){
     w.workers.forEach(wk=>{
       const key = fWk ? w.fromDate+'|'+wk.name : wk.name;
       if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
-        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,hdml:0,cts:[],luongList:[]};
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,hdml:0,tru:0,cts:[],luongList:[]};
       wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
       const tc=wk.d.reduce((s,v)=>s+v,0);
       map[key].tc+=tc;
       map[key].tl+=tc*(wk.luong||0);
       map[key].pc+=(wk.phucap||0);
       map[key].hdml+=(wk.hdmuale||0);
+      map[key].tru+=(wk.tru||0);
       if(!map[key].cts.includes(w.ct)) map[key].cts.push(w.ct);
       map[key].luongList.push(wk.luong||0);
       if(!fWk){ if(w.fromDate<map[key].fromDate) map[key].fromDate=w.fromDate;
@@ -854,7 +661,7 @@ function renderCCTLT(){
 
   if(!rows.length){
     if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; cardsEl.innerHTML='<p style="text-align:center;color:var(--ink3);padding:20px">Chưa có dữ liệu</p>'; }
-    else{ tableWrap.style.display=''; cardsEl.style.display='none'; tbody.innerHTML=`<tr class="empty-row"><td colspan="14">Chưa có dữ liệu</td></tr>`; }
+    else{ tableWrap.style.display=''; cardsEl.style.display='none'; tbody.innerHTML=`<tr class="empty-row"><td colspan="17">Chưa có dữ liệu</td></tr>`; }
     document.getElementById('cc-tlt-pagination').innerHTML=''; return;
   }
 
@@ -873,9 +680,13 @@ function renderCCTLT(){
       const daysHtml=r.d.map((v,i)=>v>0?`<span class="tlt-day-badge${v>=1?' tlt-day-full':' tlt-day-half'}">${DAY_LABELS[i]}: ${v}</span>`:'').filter(Boolean).join('');
       const ctsHtml=r.cts.length?`<div class="tlt-card-cts">${r.cts.map(c=>x(c)).join(' · ')}</div>`:'';
       const periodHtml=fWk?`${viShort(r.fromDate)} – ${viShort(r.toDate)}`:'Tổng nhiều tuần';
+      const tongUng_=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+      const tongTruAll_=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
+      const noCon_=tongUng_-tongTruAll_;
       return `<div class="tlt-card"
         data-name="${x(r.name)}" data-from="${r.fromDate}" data-to="${r.toDate}"
         data-tc="${r.tc}" data-tl="${r.tl}" data-pc="${r.pc}" data-hdml="${r.hdml}"
+        data-tru="${r.tru}" data-no-con="${noCon_}"
         data-cts="${r.cts.join('|')}">
         <div class="tlt-card-header">
           <label class="tlt-card-label">
@@ -896,9 +707,16 @@ function renderCCTLT(){
     tbody.innerHTML=paged.map(r=>{
       const tcLuong=r.tl+r.pc+r.hdml;
       const luongTB=r.tc>0?Math.round(r.tl/r.tc):0;
+      const thucLanh_=tcLuong-r.tru;
+      const tongUng_=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+      const tongTruAll_=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
+      const noCon_=tongUng_-tongTruAll_;
+      const noConStr_=noCon_>0?numFmt(noCon_)+' (nợ)':noCon_<0?numFmt(-noCon_)+' (dư)':'0';
+      const noConColor_=noCon_>0?'var(--red)':noCon_<0?'var(--green)':'var(--ink3)';
       return `<tr
         data-name="${x(r.name)}" data-from="${r.fromDate}" data-to="${r.toDate}"
         data-tc="${r.tc}" data-tl="${r.tl}" data-pc="${r.pc}" data-hdml="${r.hdml}"
+        data-tru="${r.tru}" data-no-con="${noCon_}"
         data-cts="${r.cts.join('|')}">
         <td style="text-align:center;padding:4px"><input type="checkbox" class="cc-tlt-chk" style="width:15px;height:15px;cursor:pointer"></td>
         <td style="${mono};font-size:10px;color:var(--ink2);white-space:nowrap">${fWk?viShort(r.fromDate):'Tổng'}<br><span style="color:var(--ink3)">${fWk?viShort(r.toDate):r.tc+' công'}</span></td>
@@ -907,6 +725,9 @@ function renderCCTLT(){
         <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
         <td style="text-align:right;${mono};font-weight:700;font-size:13px;color:var(--green)">${tcLuong?numFmt(tcLuong):'—'}</td>
         <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${luongTB?numFmt(luongTB):'—'}</td>
+        <td style="text-align:right;${mono};font-size:12px;color:var(--red)">${r.tru?numFmt(r.tru):'—'}</td>
+        <td style="text-align:right;${mono};font-weight:700;color:var(--green);background:#f1f8f4">${thucLanh_>0?numFmt(thucLanh_):thucLanh_<0?'('+numFmt(-thucLanh_)+')':'—'}</td>
+        <td style="text-align:right;${mono};font-size:12px;font-weight:${noCon_!==0?'700':'400'};color:${noConColor_}">${noConStr_}</td>
         <td style="font-size:11px;color:var(--ink2);max-width:200px">${r.cts.map(c=>x(c)).join('<br>')}</td>
       </tr>`;
     }).join('');
@@ -931,20 +752,30 @@ function exportCCTLTCSV(){
     if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
-      const key=w.fromDate+'|'+wk.name;
+      // Mirror same key logic as renderCCTLT: group by name-only when no week filter
+      const key=fWk?w.fromDate+'|'+wk.name:wk.name;
       if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
-        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[]};
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,hdml:0,tru:0,cts:[]};
       wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
       const tc=wk.d.reduce((s,v)=>s+v,0);
       map[key].tc+=tc; map[key].tl+=tc*(wk.luong||0);
-      map[key].pc+=(wk.phucap||0); map[key].cts.push(w.ct);
+      map[key].pc+=(wk.phucap||0); map[key].hdml+=(wk.hdmuale||0);
+      map[key].tru+=(wk.tru||0);
+      if(!map[key].cts.includes(w.ct)) map[key].cts.push(w.ct);
+      if(!fWk){ if(w.fromDate<map[key].fromDate) map[key].fromDate=w.fromDate;
+                if(w.toDate>map[key].toDate) map[key].toDate=w.toDate; }
     });
   });
-  const rows=[['Tuần','Tên CN','CN','T2','T3','T4','T5','T6','T7','TC','TC Lương','Lương TB/Ngày','Công Trình']];
-  Object.values(map).sort((a,b)=>b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name)).forEach(r=>{
-    const tcL=r.tl+r.pc;
-    const ltb=r.tc>0?Math.round(tcL/r.tc):0;
-    rows.push([viShort(r.fromDate)+'–'+viShort(r.toDate),r.name,...r.d,r.tc,tcL,ltb,r.cts.join(', ')]);
+  const rows=[['Tuần','Tên CN','CN','T2','T3','T4','T5','T6','T7','TC','TC Lương','Lương TB/Ngày','Trừ','Thực Lãnh','Nợ Còn','Công Trình']];
+  Object.values(map).sort((a,b)=>fWk?b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name,'vi'):a.name.localeCompare(b.name,'vi')).forEach(r=>{
+    const tcL=r.tl+r.pc+r.hdml;  // consistent with TLT table
+    const ltb=r.tc>0?Math.round(r.tl/r.tc):0;
+    const thucLanh_csv=tcL-r.tru;
+    const tongUng_csv=ungRecords.filter(u=>u.loai==='congnhan'&&u.tp===r.name).reduce((s,u)=>s+(u.tien||0),0);
+    const tongTruAll_csv=ccData.reduce((s,w)=>s+(w.workers||[]).filter(wk=>wk.name===r.name).reduce((a,wk)=>a+(wk.tru||0),0),0);
+    const noCon_csv=tongUng_csv-tongTruAll_csv;
+    const periodStr=fWk?viShort(r.fromDate)+'–'+viShort(r.toDate):'Tổng';
+    rows.push([periodStr,r.name,...r.d,r.tc,tcL,ltb,r.tru,thucLanh_csv,noCon_csv,r.cts.join(', ')]);
   });
   dlCSV(rows,'tong_luong_tuan_'+today()+'.csv');
 }
@@ -981,6 +812,7 @@ function delCCWeekHistory(fromDate,ct){
   ccData=ccData.filter(r=>!(r.fromDate===fromDate&&r.ct===ct));
   if(ccData.length===before){ toast('Không tìm thấy dữ liệu để xóa','error'); return; }
   save('cc_v2',ccData);
+  updateTop(); // CC invoices computed dynamically — cần cập nhật tổng
   renderCCHistory();
   toast('Đã xóa tuần chấm công');
 }
@@ -989,7 +821,7 @@ function delCCWeekHistory(fromDate,ct){
 function exportCCWeekCSV(){
   const f=document.getElementById('cc-from').value;
   const ct=document.getElementById('cc-ct-sel').value||'?';
-  const rows=[['CT','Từ','Đến','Tên','CN','T2','T3','T4','T5','T6','T7','TC','Lương/N','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Nội Dung','Tổng Cộng']];
+  const rows=[['CT','Từ','Đến','Tên','CN','T2','T3','T4','T5','T6','T7','TC','Lương/N','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Trừ','Nội Dung','Tổng Cộng']];
   document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr=>{
     const name=tr.querySelector('[data-cc="name"]')?.value?.trim()||'';
     if(!name) return;
@@ -998,8 +830,9 @@ function exportCCWeekCSV(){
     const l=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
     const pc=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
     const hd=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    const tru=parseInt(tr.querySelector('[data-cc="tru"]')?.dataset?.raw||0)||0;
     const nd=tr.querySelector('[data-cc="nd"]')?.value?.trim()||'';
-    rows.push([ct,f,document.getElementById('cc-to').value,name,...d,tc,l,tc*l,pc,hd,nd,tc*l+pc+hd]);
+    rows.push([ct,f,document.getElementById('cc-to').value,name,...d,tc,l,tc*l,pc,hd,tru,nd,tc*l+pc+hd]);
   });
   dlCSV(rows,'chamcong_'+f+'.csv');
 }
@@ -1012,6 +845,7 @@ function exportCCHistCSV(){
   const rows=[['CT','Từ','Đến','CN','T2','T3','T4','T5','T6','T7','TC','Lương/Ngày TB','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Nội Dung','Tổng Cộng']];
   const map={};
   ccData.forEach(w=>{
+    if(!inActiveYear(w.fromDate)) return;  // lọc năm đang chọn
     if(fCt&&w.ct!==fCt) return;
     if(fWk&&w.fromDate!==fWk) return;
     const key=w.fromDate+'|'+w.ct;
@@ -1077,10 +911,12 @@ function xuatPhieuLuong() {
     const tl       = parseInt(container.dataset.tl)     || 0; // tc * luong
     const pc       = parseInt(container.dataset.pc)     || 0; // phụ cấp
     const hdml     = parseInt(container.dataset.hdml)   || 0; // HĐ mua lẻ
+    const tru      = parseInt(container.dataset.tru)    || 0; // trừ nợ ứng
+    const noCon    = parseInt(container.dataset.noCon)  || 0; // nợ còn
     const cts      = (container.dataset.cts || '').split('|').filter(Boolean);
     const tongCong = tl + pc + hdml;
     const luongTB  = tc > 0 ? Math.round(tl / tc) : 0;
-    rows.push({ name, fromDate, toDate, tc, tl, pc, hdml, cts, tongCong, luongTB });
+    rows.push({ name, fromDate, toDate, tc, tl, pc, hdml, cts, tongCong, luongTB, tru, noCon });
   });
 
   if (!rows.length) {
@@ -1099,6 +935,11 @@ function xuatPhieuLuong() {
   const ctLabel    = allCts.join(', ') || '(Nhiều công trình)';
   const today_     = new Date().toLocaleDateString('vi-VN');
   const tongThanhToan = rows.reduce((s, r) => s + r.tongCong, 0);
+  const tongTru_ = rows.reduce((s, r) => s + r.tru, 0);
+  const tongThucLanh_ = tongThanhToan - tongTru_;
+  const _seenCNNames = new Set();
+  let tongNoCon_ = 0;
+  rows.forEach(r => { if(!_seenCNNames.has(r.name)){ _seenCNNames.add(r.name); tongNoCon_ += r.noCon; } });
 
   // 3. Đổ dữ liệu vào template
   document.getElementById('pl-ct-name').textContent = ctLabel;
@@ -1117,8 +958,22 @@ function xuatPhieuLuong() {
     </tr>`).join('');
 
   document.getElementById('pl-total-cell').textContent  = numFmt(tongThanhToan) + ' đ';
-  document.getElementById('pl-grand-total').textContent =
-    'TỔNG TIỀN THANH TOÁN: ' + numFmt(tongThanhToan) + ' đồng';
+  // Debt summary block
+  const _dsEl = document.getElementById('pl-debt-summary');
+  if(tongTru_ !== 0 && _dsEl){
+    document.getElementById('pl-ds-tong').textContent  = numFmt(tongThanhToan) + ' đ';
+    document.getElementById('pl-ds-tru').textContent   = numFmt(tongTru_) + ' đ';
+    document.getElementById('pl-ds-thuc').textContent  = numFmt(Math.max(0, tongThucLanh_)) + ' đ';
+    const _noConStr = tongNoCon_>0 ? numFmt(tongNoCon_)+' (nợ)' : tongNoCon_<0 ? numFmt(-tongNoCon_)+' (dư)' : '0 đ';
+    document.getElementById('pl-ds-no').textContent    = _noConStr;
+    _dsEl.style.display = '';
+    document.getElementById('pl-grand-total').textContent =
+      'THỰC LÃNH: ' + numFmt(Math.max(0, tongThucLanh_)) + ' đồng';
+  } else {
+    if(_dsEl) _dsEl.style.display = 'none';
+    document.getElementById('pl-grand-total').textContent =
+      'TỔNG TIỀN THANH TOÁN: ' + numFmt(tongThanhToan) + ' đồng';
+  }
 
   // 4. Hiện template tạm để chụp
   const tpl = document.getElementById('phieu-luong-template');
