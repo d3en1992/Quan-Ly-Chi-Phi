@@ -53,6 +53,132 @@ function _loadLS(k) {
 function _saveLS(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
 
 // ══════════════════════════════════════════════════════════════
+// [MODULE: INDEXEDDB — Dexie offline-first layer]
+// ══════════════════════════════════════════════════════════════
+
+const db = new Dexie('qlct');
+db.version(1).stores({
+  invoices:   'id, updatedAt',
+  attendance: 'id, updatedAt',
+  equipment:  'id, updatedAt',
+  ung:        'id, updatedAt',
+  revenue:    'id, updatedAt',
+  categories: 'id'
+});
+
+// Mapping: localStorage key → IDB table config
+const DB_KEY_MAP = {
+  'inv_v3':   { table: 'invoices',   isArr: true  },
+  'cc_v2':    { table: 'attendance', isArr: true  },
+  'tb_v1':    { table: 'equipment',  isArr: true  },
+  'ung_v1':   { table: 'ung',        isArr: true  },
+  'thu_v1':   { table: 'revenue',    isArr: true  },
+  'cat_ct':   { table: 'categories', isArr: false, catId: 'congTrinh'  },
+  'cat_loai': { table: 'categories', isArr: false, catId: 'loaiChiPhi' },
+  'cat_ncc':  { table: 'categories', isArr: false, catId: 'nhaCungCap' },
+  'cat_nguoi':{ table: 'categories', isArr: false, catId: 'nguoiTH'    },
+  'cat_tp':   { table: 'categories', isArr: false, catId: 'thauPhu'    },
+  'cat_cn':   { table: 'categories', isArr: false, catId: 'congNhan'   },
+};
+
+// Merge two arrays by id, keeping the record with the latest updatedAt
+function mergeUnique(oldArr, newArr) {
+  const map = new Map();
+  (oldArr || []).forEach(r => map.set(r.id, r));
+  (newArr || []).forEach(r => {
+    const existing = map.get(r.id);
+    if (!existing || r.updatedAt > existing.updatedAt) {
+      map.set(r.id, r);
+    }
+  });
+  return [...map.values()];
+}
+
+// Write one localStorage key to IndexedDB (background, no throw)
+async function _dbSave(k, v) {
+  const cfg = DB_KEY_MAP[k];
+  if (!cfg) return;
+  const now = Date.now();
+  if (cfg.isArr) {
+    const records = (Array.isArray(v) ? v : []).map(r => {
+      if (!r.id) r.id = crypto.randomUUID();
+      if (!r.updatedAt) r.updatedAt = now;
+      return r;
+    });
+    await db[cfg.table].bulkPut(records);
+  } else {
+    await db[cfg.table].put({ id: cfg.catId, data: v, updatedAt: now });
+  }
+}
+
+// Async preflight: sync IDB ↔ localStorage before app starts
+// If IDB has data → copy to localStorage (IDB wins)
+// If IDB empty → migrate localStorage → IDB
+async function dbInit() {
+  try {
+    const now = Date.now();
+    // Array tables
+    const tables = [
+      { key: 'inv_v3',  table: db.invoices   },
+      { key: 'cc_v2',   table: db.attendance  },
+      { key: 'tb_v1',   table: db.equipment   },
+      { key: 'ung_v1',  table: db.ung         },
+      { key: 'thu_v1',  table: db.revenue     },
+    ];
+    for (const { key, table } of tables) {
+      const idbRows = await table.toArray();
+      if (idbRows.length > 0) {
+        // IDB has data — update localStorage cache so synchronous load() sees it
+        localStorage.setItem(key, JSON.stringify(idbRows));
+      } else {
+        // IDB empty — migrate from localStorage
+        const lsRaw = localStorage.getItem(key);
+        if (lsRaw) {
+          try {
+            const lsRows = JSON.parse(lsRaw);
+            if (Array.isArray(lsRows) && lsRows.length > 0) {
+              const records = lsRows.map(r => {
+                if (!r.id) r.id = crypto.randomUUID();
+                if (!r.updatedAt) r.updatedAt = now;
+                return r;
+              });
+              await table.bulkPut(records);
+              localStorage.setItem(key, JSON.stringify(records));
+            }
+          } catch(e) { console.warn('[IDB] migrate lỗi', key, e); }
+        }
+      }
+    }
+    // Category tables (stored as { id, data, updatedAt })
+    const catMap = [
+      { key: 'cat_ct',    catId: 'congTrinh'  },
+      { key: 'cat_loai',  catId: 'loaiChiPhi' },
+      { key: 'cat_ncc',   catId: 'nhaCungCap' },
+      { key: 'cat_nguoi', catId: 'nguoiTH'    },
+      { key: 'cat_tp',    catId: 'thauPhu'    },
+      { key: 'cat_cn',    catId: 'congNhan'   },
+    ];
+    for (const { key, catId } of catMap) {
+      const idbRec = await db.categories.get(catId);
+      if (idbRec) {
+        localStorage.setItem(key, JSON.stringify(idbRec.data));
+      } else {
+        const lsRaw = localStorage.getItem(key);
+        if (lsRaw) {
+          try {
+            const lsData = JSON.parse(lsRaw);
+            await db.categories.put({ id: catId, data: lsData, updatedAt: now });
+          } catch(e) { console.warn('[IDB] migrate cat lỗi', catId, e); }
+        }
+      }
+    }
+    console.log('[IDB] dbInit hoàn tất');
+  } catch(e) {
+    console.warn('[IDB] dbInit lỗi:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // [MODULE: STORAGE v2] — DATA_VERSION · Migration · Backup · JSON IO
 // Tìm nhanh: Ctrl+F → "MODULE: STORAGE"
 // ══════════════════════════════════════════════════════════════
@@ -411,6 +537,8 @@ function save(k, v) {
   clearTimeout(save._t);
   localStorage.setItem(k, JSON.stringify(v));
   save._t = setTimeout(fbPushAll, 2500);
+  // Async write to IndexedDB (background, non-blocking)
+  _dbSave(k, v).catch(e => console.warn('[IDB] save lỗi:', k, e));
 }
 
 // ══ FIRESTORE DOCUMENT FORMAT ═════════════════════════════

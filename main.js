@@ -180,4 +180,23 @@ function _refreshAllTabs() {
   updateTop();
 }
 
-init(); // Khoi dong app
+// Khoi dong app — IDB preflight truoc, sau do moi chay init()
+(async () => {
+  await dbInit();
+  // Re-load globals tu localStorage (da duoc IDB preflight cap nhat)
+  invoices    = load('inv_v3', []);
+  ungRecords  = load('ung_v1', []);
+  ccData      = load('cc_v2', []);
+  tbData      = load('tb_v1', []);
+  hopDongData = load('hopdong_v1', {});
+  thuRecords  = load('thu_v1', []);
+  cats.congTrinh      = load('cat_ct',       DEFAULTS.congTrinh);
+  cats.congTrinhYears = load('cat_ct_years', {});
+  cats.loaiChiPhi     = load('cat_loai',     DEFAULTS.loaiChiPhi);
+  cats.nhaCungCap     = load('cat_ncc',      DEFAULTS.nhaCungCap);
+  cats.nguoiTH        = load('cat_nguoi',    DEFAULTS.nguoiTH);
+  cats.thauPhu        = load('cat_tp',       []);
+  cats.congNhan       = load('cat_cn',       []);
+  cnRoles             = load('cat_cn_roles', {});
+  init();
+})();
