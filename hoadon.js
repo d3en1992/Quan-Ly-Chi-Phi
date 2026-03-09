@@ -919,7 +919,7 @@ function saveAllUngRows() {
     if(!tp) { errRow++; tr.style.background='#fdecea'; return; }
     tr.style.background='';
     ungRecords.unshift({
-      id: Date.now()+Math.random(), ngay:date,
+      id: crypto.randomUUID(), updatedAt: Date.now(), ngay:date,
       loai: (tr.querySelector('[data-f="loai"]')?.value||'thauphu'),
       tp,
       congtrinh:(tr.querySelector('[data-f="ct"]')?.value||'').trim(),

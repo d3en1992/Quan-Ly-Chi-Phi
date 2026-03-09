@@ -87,7 +87,7 @@ function mergeUnique(oldArr, newArr) {
   (oldArr || []).forEach(r => map.set(r.id, r));
   (newArr || []).forEach(r => {
     const existing = map.get(r.id);
-    if (!existing || r.updatedAt > existing.updatedAt) {
+    if (!existing || (r.updatedAt || 0) > (existing.updatedAt || 0)) {
       map.set(r.id, r);
     }
   });
@@ -575,21 +575,21 @@ function expandInv(arr) {
     nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined}));
 }
 function compressCC(arr) {
-  return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,
+  return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,a:w.updatedAt,
     w:w.workers.map(wk=>{const r={n:wk.name,d:wk.d,l:wk.luong};
       if(wk.phucap)r.p=wk.phucap; if(wk.hdmuale)r.h=wk.hdmuale; if(wk.nd)r.t=wk.nd;
       if(wk.tru)r.u=wk.tru; return r;})}));
 }
 function expandCC(arr) {
-  return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,
+  return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,updatedAt:w.a,
     workers:(w.w||[]).map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||'',tru:wk.u||0}))}));
 }
 function compressUng(arr) {
-  return (arr||[]).map(o=>{const r={i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''};
+  return (arr||[]).map(o=>{const r={i:o.id,a:o.updatedAt,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''};
     if(o.loai&&o.loai!=='thauphu')r.k=o.loai; return r;});
 }
 function expandUng(arr) {
-  return (arr||[]).map(o=>({id:o.i,ngay:o.d,tp:o.t,loai:o.k||'thauphu',congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
+  return (arr||[]).map(o=>({id:o.i,updatedAt:o.a,ngay:o.d,tp:o.t,loai:o.k||'thauphu',congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
 }
 function compressTb(arr) {
   return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
@@ -700,41 +700,7 @@ function fbPushAll() {
         !changedTB.length && !changedThu.length) {
       return;
     }
-
-    // Có thay đổi → build payload chỉ từ record đã thay đổi
-    const payload = { v:3, yr,
-      i:   changedInvoices.length ? compressInv(changedInvoices) : undefined,
-      u:   changedUng.length      ? compressUng(changedUng)      : undefined,
-      c:   changedCC.length       ? compressCC(changedCC)        : undefined,
-      t:   changedTB.length       ? compressTb(changedTB)        : undefined,
-      thu: changedThu.length      ? changedThu                   : undefined,
-    };
-    // Xoá key undefined để payload gọn hơn
-    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
-
-    const kb = Math.round(JSON.stringify(payload).length/1024*10)/10;
-    _fbPushing = true;
-    _ensureSyncDot(); _setSyncDot('syncing');
-    showSyncBanner('☁️ Đang lưu thay đổi (~' + kb + 'kb)...');
-    fsSet(fbDocYear(yr), payload).then(res=>{
-      _fbPushing = false;
-      if (res.fields) {
-        // Ghi thời điểm sync thành công
-        localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
-        _setSyncDot('');
-        showSyncBanner('✅ Đã lưu cloud (~' + kb + 'kb)', 2000);
-        updateJbBtn();
-        fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
-      } else {
-        _setSyncDot('error');
-        const err = res.error?.message || JSON.stringify(res.error) || '?';
-        if (err.includes('PERMISSION_DENIED'))
-          showSyncBanner('⚠️ Lỗi quyền truy cập — kiểm tra Security Rules', 5000);
-        else
-          showSyncBanner('⚠️ Lỗi lưu: ' + err.substring(0,60), 4000);
-      }
-    }).catch(()=>{ _fbPushing=false; _setSyncDot('offline'); showSyncBanner('⚠️ Mất kết nối internet', 3000); });
-    return;
+    // Có thay đổi → fall through để push toàn bộ năm (tránh delta ghi đè cloud)
   }
 
   // ── Full push (lastSyncAt chưa có — lần đầu hoặc sau khi reset) ─
@@ -781,32 +747,18 @@ function gsLoadAll(callback) {
     // Apply year data
     const yearData = fsUnwrap(yearDoc);
     if (yearData) {
-      // Helper: merge cloud records for current year with local records from other years,
-      // then write to both localStorage (sync cache) and IndexedDB (persistent store).
+      // Helper: merge cloud records with all local records by id+updatedAt.
+      // Cloud record wins if same id and newer updatedAt; local record is kept if not in cloud.
       const mergeArr = (key, expanded) => {
-        const existing = load(key,[]).filter(x=>{
-          const d = x.ngay||x.fromDate||'';
-          return !d.startsWith(ys);
-        });
-        const merged = [...expanded, ...existing];
+        const merged = mergeUnique(load(key, []), expanded);
         localStorage.setItem(key, JSON.stringify(merged));
         // Sync cloud-loaded data into IndexedDB so dbInit() won't overwrite it on next boot
         _dbSave(key, merged).catch(e => console.warn('[IDB] gsLoadAll save lỗi:', key, e));
       };
       if(yearData.i) mergeArr('inv_v3', expandInv(yearData.i));
       if(yearData.u) mergeArr('ung_v1', expandUng(yearData.u));
-      if(yearData.c) {
-        const ex=load('cc_v2',[]).filter(x=>!x.fromDate||!x.fromDate.startsWith(ys));
-        const merged=[...expandCC(yearData.c),...ex];
-        localStorage.setItem('cc_v2', JSON.stringify(merged));
-        _dbSave('cc_v2', merged).catch(e => console.warn('[IDB] gsLoadAll save lỗi: cc_v2', e));
-      }
-      if(yearData.t) {
-        const ex=load('tb_v1',[]).filter(x=>!x.ngay||!x.ngay.startsWith(ys));
-        const merged=[...expandTb(yearData.t),...ex];
-        localStorage.setItem('tb_v1', JSON.stringify(merged));
-        _dbSave('tb_v1', merged).catch(e => console.warn('[IDB] gsLoadAll save lỗi: tb_v1', e));
-      }
+      if(yearData.c) mergeArr('cc_v2', expandCC(yearData.c));
+      if(yearData.t) mergeArr('tb_v1', expandTb(yearData.t));
     }
     // Apply cats
     const catsData = fsUnwrap(catsDoc);
@@ -824,8 +776,7 @@ function gsLoadAll(callback) {
     }
     // Apply thu (theo năm — merge như ungRecords)
     if (yearData && yearData.thu) {
-      const exThu = load('thu_v1',[]).filter(x => !x.ngay || !x.ngay.startsWith(ys));
-      const mergedThu = [...yearData.thu, ...exThu];
+      const mergedThu = mergeUnique(load('thu_v1', []), yearData.thu);
       localStorage.setItem('thu_v1', JSON.stringify(mergedThu));
       _dbSave('thu_v1', mergedThu).catch(e => console.warn('[IDB] gsLoadAll save lỗi: thu_v1', e));
       thuRecords = load('thu_v1', []);
