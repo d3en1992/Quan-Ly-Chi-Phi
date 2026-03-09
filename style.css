@@ -223,6 +223,69 @@ select.cell-input {
 .sub-page { display: none; }
 .sub-page.active { display: block; }
 
+/* ── Inner sub-navigation (bên trong sub-nhap-hd) ── */
+.inner-sub-nav {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.inner-sub-btn {
+  padding: 5px 16px; border: 1.5px solid var(--line2);
+  border-radius: 5px; background: var(--paper);
+  color: var(--ink2); font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.inner-sub-btn:hover { background: var(--gold-bg); color: var(--gold); border-color: var(--gold); }
+.inner-sub-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+.inner-sub-page { display: none; }
+.inner-sub-page.active { display: block; }
+
+/* ── Detail Invoice Form ── */
+.detail-inv-header {
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 10px 10px 0 0; padding: 10px 16px;
+  display: flex; align-items: center; gap: 20px;
+  border-bottom: 2px solid var(--gold); flex-wrap: wrap;
+}
+.detail-header-field { display: flex; align-items: center; gap: 8px; }
+.detail-invoice-footer {
+  background: var(--paper); border: 1px solid var(--line);
+  border-top: none; padding: 12px 20px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.detail-footer-row {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 340px; justify-content: space-between;
+}
+.detail-footer-label {
+  font-size: 12px; font-weight: 600; color: var(--ink2);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.detail-footer-val {
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700;
+  font-size: 14px; color: var(--ink); min-width: 130px; text-align: right;
+}
+.detail-footer-val.hi { color: var(--green); font-size: 16px; }
+.detail-footer-ck-input {
+  padding: 4px 8px; border: 1.5px solid var(--line2); border-radius: 5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  outline: none; width: 140px; text-align: right; background: var(--bg);
+}
+.detail-footer-ck-input:focus { border-color: var(--gold); background: var(--paper); }
+.detail-footer-total-row { padding-top: 8px; border-top: 2px solid var(--line2); margin-top: 2px; }
+.detail-footer-total-row .detail-footer-label { color: var(--ink); font-size: 13px; }
+.detail-nd-bar {
+  background: var(--paper); border: 1px solid var(--line);
+  border-top: none; border-radius: 0 0 10px 10px;
+  padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+}
+.detail-nd-input {
+  flex: 1; padding: 6px 10px; border: 1.5px solid var(--line2);
+  border-radius: 5px; font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px; outline: none; background: var(--bg);
+}
+.detail-nd-input:focus { border-color: var(--gold); background: var(--paper); }
+
 /* Records */
 .records-wrap { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
 .records-toolbar {

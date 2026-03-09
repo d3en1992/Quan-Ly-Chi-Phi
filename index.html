@@ -177,67 +177,154 @@
 
     <!-- Sub-navigation -->
     <div class="sub-nav">
-      <button class="sub-nav-btn active" onclick="goSubPage(this,'sub-nhap-hd')">📝 Nhập HĐ/CP</button>
-      <button class="sub-nav-btn" onclick="goSubPage(this,'sub-hom-nay')">📋 HĐ/CP nhập trong ngày</button>
+      <button class="sub-nav-btn active" onclick="goSubPage(this,'sub-nhap-hd');renderTodayInvoices()">📝 Nhập HĐ/CP</button>
       <button class="sub-nav-btn" onclick="goSubPage(this,'sub-tat-ca')">📂 Tất cả CP/HĐ</button>
       <button class="sub-nav-btn" onclick="goSubPage(this,'sub-da-xoa')">🗑 HĐ/CP đã xóa</button>
     </div>
 
     <!-- ── Sub-page 1: Nhập HĐ/CP ── -->
     <div class="sub-page active" id="sub-nhap-hd">
-      <div class="section-header">
-        <div class="section-title"><span class="dot"></span>Nhập Hóa Đơn</div>
-        <div class="btn-group">
-          <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
-          <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
+
+      <!-- Inner sub-nav: Nhập nhanh vs Hóa đơn chi tiết -->
+      <div class="inner-sub-nav">
+        <button class="inner-sub-btn active" onclick="goInnerSub(this,'inr-nhap-nhanh')">⚡ Nhập nhanh</button>
+        <button class="inner-sub-btn" onclick="goInnerSub(this,'inr-hd-chitiet')">📋 Hóa đơn chi tiết</button>
+      </div>
+
+      <!-- ── Inner sub-page 1: Nhập nhanh (giữ nguyên) ── -->
+      <div class="inner-sub-page active" id="inr-nhap-nhanh">
+        <div class="section-header">
+          <div class="section-title"><span class="dot"></span>Nhập Hóa Đơn</div>
+          <div class="btn-group">
+            <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
+            <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
+          </div>
+        </div>
+
+        <div class="entry-date-bar">
+          <span class="bar-label">Ngày</span>
+          <input type="date" id="entry-date" class="date-input">
+        </div>
+
+        <div class="entry-table-wrap">
+          <div class="table-scroll">
+            <table class="entry-table">
+              <thead>
+                <tr>
+                  <th class="col-num">#</th>
+                  <th class="col-loai">Loại Chi Phí *</th>
+                  <th class="col-ct">Công Trình *</th>
+                  <th class="col-tien">Số Tiền (đ)</th>
+                  <th style="width:72px;text-align:center">SL</th>
+                  <th style="width:130px;text-align:right">Th Tiền (đ)</th>
+                  <th class="col-nd">Nội Dung / Ghi Chú</th>
+                  <th class="col-nguoi">Người TH</th>
+                  <th class="col-ncc">Nhà Cung Cấp</th>
+                  <th class="col-del"></th>
+                </tr>
+              </thead>
+              <tbody id="entry-tbody"></tbody>
+            </table>
+          </div>
+          <div class="add-row-bar">
+            <button class="btn btn-outline btn-sm" onclick="addRows(1)">+ 1 dòng</button>
+            <button class="btn btn-outline btn-sm" onclick="addRows(5)">+ 5 dòng</button>
+            <button class="btn btn-outline btn-sm" onclick="addRows(10)">+ 10 dòng</button>
+            <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <div class="save-bar-info">
+            <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
+            <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
+          </div>
+          <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu / Cập Nhật</button>
         </div>
       </div>
 
-      <div class="entry-date-bar">
-        <span class="bar-label">Ngày</span>
-        <input type="date" id="entry-date" class="date-input">
+      <!-- ── Inner sub-page 2: Hóa đơn chi tiết ── -->
+      <div class="inner-sub-page" id="inr-hd-chitiet">
+        <div class="section-header">
+          <div class="section-title"><span class="dot"></span>Hóa Đơn Chi Tiết</div>
+          <button class="btn btn-outline" onclick="clearDetailForm()">🗑 Xóa form</button>
+        </div>
+
+        <!-- Header: Ngày, Loại chi phí, Công trình -->
+        <div class="detail-inv-header">
+          <div class="detail-header-field">
+            <span class="bar-label">Ngày</span>
+            <input type="date" id="detail-ngay" class="date-input">
+          </div>
+          <div class="detail-header-field">
+            <span class="bar-label">Loại Chi Phí</span>
+            <select id="detail-loai" class="bare-select" style="min-width:200px"></select>
+          </div>
+          <div class="detail-header-field">
+            <span class="bar-label">Công Trình</span>
+            <select id="detail-ct" class="bare-select" style="min-width:240px"></select>
+          </div>
+        </div>
+
+        <!-- Bảng chi tiết hàng hóa -->
+        <div class="entry-table-wrap" style="margin-top:0;border-radius:0">
+          <div class="table-scroll">
+            <table class="entry-table" style="min-width:820px">
+              <thead>
+                <tr>
+                  <th class="col-num">#</th>
+                  <th style="min-width:200px">TÊN HÀNG HÓA / VẬT TƯ</th>
+                  <th style="width:72px;text-align:center">ĐVT</th>
+                  <th style="width:80px;text-align:center">SL</th>
+                  <th style="width:145px;text-align:right">ĐƠN GIÁ (đ)</th>
+                  <th style="width:120px">CHIẾT KHẤU</th>
+                  <th style="width:145px;text-align:right">THÀNH TIỀN (đ)</th>
+                  <th class="col-del"></th>
+                </tr>
+              </thead>
+              <tbody id="detail-tbody"></tbody>
+            </table>
+          </div>
+          <div class="add-row-bar">
+            <button class="btn btn-outline btn-sm" onclick="addDetailRow()">+ 1 dòng</button>
+            <button class="btn btn-outline btn-sm" onclick="for(let i=0;i<5;i++)addDetailRow()">+ 5 dòng</button>
+            <span style="font-size:11px;color:var(--ink3);margin-left:8px">CK: nhập % (vd: 5%) hoặc số tiền (vd: 50000)</span>
+          </div>
+        </div>
+
+        <!-- Footer: TC, chiết khấu tổng, tổng thành tiền -->
+        <div class="detail-invoice-footer">
+          <div class="detail-footer-row">
+            <span class="detail-footer-label">Tổng Cộng (TC)</span>
+            <span class="detail-footer-val" id="detail-tc">0</span>
+          </div>
+          <div class="detail-footer-row">
+            <span class="detail-footer-label">Chiết Khấu Tổng</span>
+            <input class="detail-footer-ck-input" id="detail-footer-ck" placeholder="% hoặc số tiền..." oninput="calcDetailTotals()">
+          </div>
+          <div class="detail-footer-row detail-footer-total-row">
+            <span class="detail-footer-label">Tổng Thành Tiền</span>
+            <span class="detail-footer-val hi" id="detail-tong">0</span>
+          </div>
+        </div>
+
+        <!-- Nội dung (tự sinh từ tên hàng) -->
+        <div class="detail-nd-bar">
+          <span class="bar-label" style="white-space:nowrap">Nội Dung</span>
+          <input type="text" id="detail-nd" class="detail-nd-input" placeholder="Tự động từ tên hàng hóa...">
+        </div>
+
+        <!-- Save bar -->
+        <div class="save-bar" style="margin-top:12px">
+          <div class="save-bar-info">
+            <span>Tổng thành tiền: <span class="hi" id="detail-tong-save">0 đ</span></span>
+          </div>
+          <button class="btn btn-green" onclick="saveDetailInvoice()">💾 Lưu Hóa Đơn</button>
+        </div>
       </div>
 
-      <div class="entry-table-wrap">
-        <div class="table-scroll">
-          <table class="entry-table">
-            <thead>
-              <tr>
-                <th class="col-num">#</th>
-                <th class="col-loai">Loại Chi Phí *</th>
-                <th class="col-ct">Công Trình *</th>
-                <th class="col-tien">Số Tiền (đ)</th>
-                <th style="width:72px;text-align:center">SL</th>
-                <th style="width:130px;text-align:right">Th Tiền (đ)</th>
-                <th class="col-nd">Nội Dung / Ghi Chú</th>
-                <th class="col-nguoi">Người TH</th>
-                <th class="col-ncc">Nhà Cung Cấp</th>
-                <th class="col-del"></th>
-              </tr>
-            </thead>
-            <tbody id="entry-tbody"></tbody>
-          </table>
-        </div>
-        <div class="add-row-bar">
-          <button class="btn btn-outline btn-sm" onclick="addRows(1)">+ 1 dòng</button>
-          <button class="btn btn-outline btn-sm" onclick="addRows(5)">+ 5 dòng</button>
-          <button class="btn btn-outline btn-sm" onclick="addRows(10)">+ 10 dòng</button>
-          <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
-        </div>
-      </div>
-
-      <div class="save-bar">
-        <div class="save-bar-info">
-          <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
-          <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
-        </div>
-        <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu / Cập Nhật</button>
-      </div>
-    </div>
-
-    <!-- ── Sub-page 2: HĐ/CP nhập trong ngày ── -->
-    <div class="sub-page" id="sub-hom-nay">
-      <div id="today-invoices-wrap">
+      <!-- Hóa đơn đã nhập trong ngày (gộp trong tab Nhập HĐ/CP) -->
+      <div id="today-invoices-wrap" style="margin-top:20px">
         <div class="section-header">
           <div class="section-title" style="font-size:14px"><span class="dot"></span>Hóa Đơn Đã Nhập Trong Ngày <span id="today-inv-date" style="color:var(--gold);font-size:13px"></span></div>
           <button class="btn btn-outline btn-sm" onclick="renderTodayInvoices()">↻ Làm mới</button>
@@ -260,7 +347,7 @@
       </div>
     </div>
 
-    <!-- ── Sub-page 3: Tất cả CP/HĐ ── -->
+    <!-- ── Sub-page 2: Tất cả CP/HĐ ── -->
     <div class="sub-page" id="sub-tat-ca">
       <div class="section-header">
         <div class="section-title"><span class="dot"></span>Tất Cả Chi Phí</div>

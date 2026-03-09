@@ -192,6 +192,10 @@ function saveAllRows(skipDupCheck) {
   _doSaveRows(rows);
 }
 
+// ══════════════════════════════
+// DUPLICATE CHECK
+// ══════════════════════════════
+
 // ── Fuzzy string similarity (Dice coefficient) ───────────────
 // Trả về 0.0 → 1.0. Không cần thư viện ngoài.
 
@@ -293,7 +297,260 @@ function _doSaveRows(rows) {
 }
 
 // ══════════════════════════════
-//  ALL PAGE
+// INVOICE DETAIL
+// ══════════════════════════════
+
+function goInnerSub(btn, id) {
+  document.querySelectorAll('#sub-nhap-hd .inner-sub-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#sub-nhap-hd .inner-sub-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if(id === 'inr-hd-chitiet') {
+    _initDetailFormSelects();
+    const tbody = document.getElementById('detail-tbody');
+    if(tbody && tbody.children.length === 0) {
+      document.getElementById('detail-ngay').value = document.getElementById('entry-date')?.value || today();
+      for(let i=0; i<5; i++) addDetailRow();
+    }
+  }
+}
+
+function _initDetailFormSelects() {
+  const loaiSel = document.getElementById('detail-loai');
+  if(!loaiSel) return;
+  loaiSel.innerHTML = '<option value="">-- Chọn Loại --</option>' +
+    cats.loaiChiPhi.map(v => `<option value="${x(v)}">${x(v)}</option>`).join('');
+  const ctSel = document.getElementById('detail-ct');
+  ctSel.innerHTML = '<option value="">-- Chọn Công Trình --</option>' +
+    cats.congTrinh.filter(v => _ctInActiveYear(v)).map(v => `<option value="${x(v)}">${x(v)}</option>`).join('');
+}
+
+function renderDetailRowHTML(d, num) {
+  // Format CK for display: nếu là số (không có %) thì hiển thị hàng nghìn
+  const ckRaw = d.ck || '';
+  const ckFmt = (ckRaw && !ckRaw.endsWith('%'))
+    ? (() => { const n = parseMoney(ckRaw); return n ? numFmt(n) : ckRaw; })()
+    : ckRaw;
+  return `
+    <td class="row-num">${num}</td>
+    <td><input class="cell-input" data-f="ten" value="${x(d.ten||'')}" placeholder="Tên hàng hóa, vật tư..."></td>
+    <td style="padding:0"><input class="cell-input center" data-f="dv" value="${x(d.dv||'')}" placeholder="cái"
+      style="width:100%;text-align:center;padding:7px 4px"></td>
+    <td style="padding:0"><input data-f="sl" type="number" step="0.01" min="0"
+      value="${d.sl||''}" placeholder="1"
+      style="width:100%;text-align:center;border:none;background:transparent;padding:7px 4px;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;-moz-appearance:textfield"
+      inputmode="decimal"></td>
+    <td><input class="cell-input right" data-f="dongia" data-raw="${d.dongia||''}"
+      value="${d.dongia?numFmt(d.dongia):''}" placeholder="0" inputmode="decimal"></td>
+    <td><input class="cell-input" data-f="ck" value="${x(ckFmt)}" placeholder="vd: 5% hoặc 50000"></td>
+    <td class="tt-cell" data-f="thtien"></td>
+    <td><button class="del-btn" onclick="delDetailRow(this)">✕</button></td>
+  `;
+}
+
+function addDetailRow(d={}) {
+  const tbody = document.getElementById('detail-tbody');
+  const num = tbody.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = renderDetailRowHTML(d, num);
+
+  const dongiaInp = tr.querySelector('[data-f="dongia"]');
+  dongiaInp.addEventListener('focus', function() { this.value = this.dataset.raw || ''; });
+  dongiaInp.addEventListener('blur', function() {
+    const raw = parseInt(this.dataset.raw||'0',10)||0;
+    this.value = raw ? numFmt(raw) : '';
+  });
+  dongiaInp.addEventListener('input', function() {
+    const raw = this.value.replace(/[.,\s]/g,'');
+    this.dataset.raw = raw;
+    if(raw) this.value = numFmt(parseInt(raw,10)||0);
+    calcDetailRow(tr); calcDetailTotals();
+  });
+  tr.querySelector('[data-f="sl"]').addEventListener('input', function() {
+    calcDetailRow(tr); calcDetailTotals();
+  });
+  const ckInp = tr.querySelector('[data-f="ck"]');
+  ckInp.addEventListener('focus', function() {
+    const v = this.value.trim();
+    if (v && !v.endsWith('%')) {
+      const n = parseMoney(v);
+      if (n) this.value = String(n);
+    }
+  });
+  ckInp.addEventListener('blur', function() {
+    const v = this.value.trim();
+    if (v && !v.endsWith('%')) {
+      const n = parseMoney(v);
+      this.value = n ? numFmt(n) : v;
+    }
+  });
+  ckInp.addEventListener('input', function() {
+    calcDetailRow(tr); calcDetailTotals();
+  });
+  tr.querySelector('[data-f="ten"]').addEventListener('input', generateDetailNd);
+
+  // Enter key: nhảy đến cùng cột trong dòng tiếp theo; tạo dòng mới nếu ở dòng cuối
+  tr.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const allRows = getDetailRows();
+      const curIdx = allRows.indexOf(tr);
+      const inputs = [...tr.querySelectorAll('input')];
+      const colIdx = inputs.indexOf(this);
+      let targetRow;
+      if (curIdx < allRows.length - 1) {
+        targetRow = allRows[curIdx + 1];
+      } else {
+        addDetailRow();
+        targetRow = getDetailRows()[curIdx + 1];
+      }
+      if (targetRow) {
+        const targetInputs = [...targetRow.querySelectorAll('input')];
+        const target = targetInputs[colIdx] || targetInputs[0];
+        if (target) target.focus();
+      }
+    });
+  });
+
+  tbody.appendChild(tr);
+  if(d.dongia || d.sl || d.ck) calcDetailRow(tr);
+}
+
+function delDetailRow(btn) {
+  btn.closest('tr').remove();
+  document.querySelectorAll('#detail-tbody tr').forEach((tr,i) => {
+    tr.querySelector('.row-num').textContent = i+1;
+  });
+  calcDetailTotals();
+  generateDetailNd();
+}
+
+function calcDetailRow(tr) {
+  const {sl, dongia, ck} = getRowData(tr);
+  const tt = calcRowMoney(sl, dongia, ck);
+  tr.dataset.tt = tt;
+  const ttEl = tr.querySelector('[data-f="thtien"]');
+  if(ttEl) {
+    ttEl.textContent = tt ? numFmt(tt) : '';
+    ttEl.className = 'tt-cell' + (!tt ? ' empty' : '');
+  }
+}
+
+function calcDetailTotals() {
+  let tc = 0;
+  getDetailRows().forEach(tr => {
+    tc += parseInt(tr.dataset.tt||'0', 10) || 0;
+  });
+  const tcEl = document.getElementById('detail-tc');
+  if(tcEl) tcEl.textContent = numFmt(tc);
+
+  // Dùng calcRowMoney(sl=1, dongia=tc, ck) để tái dùng logic CK
+  const ckStr = (document.getElementById('detail-footer-ck')?.value||'').trim();
+  const tong = calcRowMoney(1, tc, ckStr);
+
+  const tongEl = document.getElementById('detail-tong');
+  if(tongEl) { tongEl.textContent = numFmt(tong); tongEl.dataset.raw = tong; }
+  const saveEl = document.getElementById('detail-tong-save');
+  if(saveEl) saveEl.textContent = fmtM(tong);
+}
+
+function generateDetailNd() {
+  const names = [];
+  document.querySelectorAll('#detail-tbody tr [data-f="ten"]').forEach(inp => {
+    const v = inp.value.trim();
+    if(v) names.push(v);
+  });
+  const ndEl = document.getElementById('detail-nd');
+  if(ndEl) ndEl.value = names.join(', ');
+}
+
+function saveDetailInvoice() {
+  const ngay = document.getElementById('detail-ngay').value;
+  if(!ngay) { toast('Vui lòng chọn ngày!','error'); return; }
+  const loai = document.getElementById('detail-loai').value;
+  if(!loai) { toast('Vui lòng chọn loại chi phí!','error'); return; }
+  const ct = document.getElementById('detail-ct').value;
+  if(!ct) { toast('Vui lòng chọn công trình!','error'); return; }
+
+  const items = [];
+  document.querySelectorAll('#detail-tbody tr').forEach(tr => {
+    const {ten, dv, sl, dongia, ck} = getRowData(tr);
+    const thanhtien = parseInt(tr.dataset.tt||'0', 10) || 0;
+    if(!ten && !dongia) return;
+    items.push({ten, dv, sl, dongia, ck, thanhtien});
+  });
+  if(!items.length) { toast('Chưa có dòng hàng hóa nào!','error'); return; }
+
+  const tong = parseInt(document.getElementById('detail-tong').dataset.raw||'0') || 0;
+  const nd = document.getElementById('detail-nd').value.trim();
+  const container = document.getElementById('inr-hd-chitiet');
+  const editId = container.dataset.editId;
+
+  const inv = { ngay, congtrinh: ct, loai, nguoi: '', ncc: '', nd, tien: tong, thanhtien: tong, items, _ts: Date.now() };
+
+  if(editId) {
+    const idx = invoices.findIndex(i => String(i.id) === String(editId));
+    if(idx >= 0) {
+      invoices[idx] = {...invoices[idx], ...inv};
+      toast('✅ Đã cập nhật hóa đơn chi tiết!','success');
+    } else {
+      inv.id = Date.now() + Math.random();
+      invoices.unshift(inv);
+      toast('✅ Đã lưu hóa đơn chi tiết!','success');
+    }
+    container.dataset.editId = '';
+  } else {
+    inv.id = Date.now() + Math.random();
+    invoices.unshift(inv);
+    toast('✅ Đã lưu hóa đơn chi tiết!','success');
+  }
+
+  save('inv_v3', invoices);
+  buildYearSelect(); updateTop();
+  renderTodayInvoices();
+  buildFilters(); filterAndRender();
+  clearDetailForm();
+}
+
+function clearDetailForm() {
+  document.getElementById('detail-tbody').innerHTML = '';
+  for(let i=0; i<5; i++) addDetailRow();
+  const ckEl = document.getElementById('detail-footer-ck');
+  if(ckEl) ckEl.value = '';
+  const ndEl = document.getElementById('detail-nd');
+  if(ndEl) ndEl.value = '';
+  const container = document.getElementById('inr-hd-chitiet');
+  if(container) container.dataset.editId = '';
+  calcDetailTotals();
+}
+
+function openDetailEdit(inv) {
+  const subNavBtn = document.querySelector('.sub-nav-btn[onclick*="sub-nhap-hd"]');
+  if(subNavBtn) goSubPage(subNavBtn, 'sub-nhap-hd');
+  window.scrollTo({top:0, behavior:'smooth'});
+  setTimeout(() => {
+    const innerBtn = document.querySelector('.inner-sub-btn[onclick*="inr-hd-chitiet"]');
+    if(innerBtn) goInnerSub(innerBtn, 'inr-hd-chitiet');
+    document.getElementById('detail-ngay').value = inv.ngay || today();
+    setTimeout(() => {
+      document.getElementById('detail-loai').value = inv.loai || '';
+      document.getElementById('detail-ct').value = inv.congtrinh || '';
+      document.getElementById('detail-tbody').innerHTML = '';
+      const itemList = inv.items || [];
+      itemList.forEach(item => addDetailRow(item));
+      const needed = Math.max(0, 5 - itemList.length);
+      for(let i=0; i<needed; i++) addDetailRow();
+      document.getElementById('detail-nd').value = inv.nd || '';
+      calcDetailTotals();
+      document.getElementById('inr-hd-chitiet').dataset.editId = String(inv.id);
+      toast('✏️ Chỉnh sửa hóa đơn chi tiết rồi nhấn 💾 Lưu','success');
+    }, 50);
+  }, 100);
+}
+
+// ══════════════════════════════
+// INVOICE LIST
 // ══════════════════════════════
 function buildFilters() {
   const allInvs = buildInvoices();
@@ -348,7 +605,10 @@ function renderTable() {
     const isManual = inv.source === 'manual' || (!inv.source && !inv.ccKey);
     const isCC     = inv.source === 'cc' || (!inv.source && inv.ccKey);
     const actionBtn = isManual
-      ? `<button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')" title="Xóa hóa đơn">✕</button>`
+      ? `<span style="white-space:nowrap;display:inline-flex;gap:3px">
+          <button class="btn btn-outline btn-sm" onclick="editManualInvoice('${inv.id}')" title="Sửa hóa đơn">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')" title="Xóa hóa đơn">✕</button>
+        </span>`
       : isCC
         ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:3px 7px" onclick="editCCInvoice('${inv.ccKey||inv.id}')" title="Chỉnh sửa tại tab Chấm Công">↩ CC</button>`
         : `<span style="color:var(--ink3);font-size:11px;padding:0 6px">—</span>`;
@@ -427,24 +687,38 @@ function editCCInvoice(ccKeyOrId) {
     toast('✏️ Đang xem tuần '+viShort(sunISO)+' — '+ct,'success');
   },50);
 }
-function editManualInvoice(id) {
-  const inv=invoices.find(i=>String(i.id)===String(id));
-  if(!inv) return;
-  // Chuyển sang tab Nhập HĐ
-  const navBtn=document.querySelector('.nav-btn[data-page="nhap"]');
-  goPage(navBtn,'nhap');
-  window.scrollTo({top:0,behavior:'smooth'});
-  setTimeout(()=>{
-    // Set ngày và clear bảng, tạo 1 hàng với dữ liệu HĐ cũ
-    document.getElementById('entry-date').value=inv.ngay||today();
-    document.getElementById('entry-tbody').innerHTML='';
-    addRow({loai:inv.loai,congtrinh:inv.congtrinh,sl:inv.sl||undefined,nguoi:inv.nguoi||'',ncc:inv.ncc||'',nd:inv.nd||'',tien:inv.tien||0});
-    // Đánh dấu edit mode — saveAllRows sẽ UPDATE thay vì thêm mới
-    const row=document.querySelector('#entry-tbody tr');
-    if(row) row.dataset.editId=String(inv.id);
+// Điều hướng đến form Nhập nhanh và nạp dữ liệu HĐ để chỉnh sửa
+function openEntryEdit(inv) {
+  // 1. Chuyển sang page Nhập
+  const navBtn = document.querySelector('.nav-btn[data-page="nhap"]');
+  if (navBtn) goPage(navBtn, 'nhap');
+  // 2. Chuyển về sub-tab sub-nhap-hd
+  const subBtn = document.querySelector('.sub-nav-btn[onclick*="sub-nhap-hd"]');
+  if (subBtn && !subBtn.classList.contains('active')) {
+    goSubPage(subBtn, 'sub-nhap-hd');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => {
+    // 3. Chuyển về inner tab Nhập nhanh
+    const innerBtn = document.querySelector('.inner-sub-btn[onclick*="inr-nhap-nhanh"]');
+    if (innerBtn) goInnerSub(innerBtn, 'inr-nhap-nhanh');
+    // 4. Nạp dữ liệu vào form
+    document.getElementById('entry-date').value = inv.ngay || today();
+    document.getElementById('entry-tbody').innerHTML = '';
+    addRow({ loai: inv.loai, congtrinh: inv.congtrinh, sl: inv.sl || undefined,
+             nguoi: inv.nguoi || '', ncc: inv.ncc || '', nd: inv.nd || '', tien: inv.tien || 0 });
+    const row = document.querySelector('#entry-tbody tr');
+    if (row) row.dataset.editId = String(inv.id);
     calcSummary();
-    toast('✏️ Chỉnh sửa rồi nhấn 💾 Cập Nhật','success');
-  },100);
+    toast('✏️ Chỉnh sửa rồi nhấn 💾 Cập Nhật', 'success');
+  }, 100);
+}
+
+function editManualInvoice(id) {
+  const inv = invoices.find(i => String(i.id) === String(id));
+  if (!inv) return;
+  if (inv.items && inv.items.length) { openDetailEdit(inv); return; }
+  openEntryEdit(inv);
 }
 function showEditInvoiceModal(inv) {
   let ov=document.getElementById('edit-inv-overlay');
@@ -1111,7 +1385,7 @@ function exportUngAllCSV() {
 }
 
 // ══════════════════════════════
-//  EXPORT
+// IMPORT / EXPORT
 // ══════════════════════════════
 function exportEntryCSV() {
   const rows=[['Loại Chi Phí','Công Trình','Người TH','Nhà Cung Cấp','Nội Dung','Số Tiền']];
@@ -1132,7 +1406,7 @@ function exportAllCSV() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  THÙNG RÁC (Hóa Đơn Đã Xóa)
+// TRASH SYSTEM
 // ══════════════════════════════════════════════════════════════════
 let trash = load('trash_v1', []);
 
@@ -1241,20 +1515,13 @@ function renderTodayInvoices() {
 }
 
 function editTodayInv(id) {
-  const inv = invoices.find(i=>String(i.id)===String(id));
-  if(!inv) return;
-  document.getElementById('entry-date').value = inv.ngay || today();
-  document.getElementById('entry-tbody').innerHTML = '';
-  addRow({loai:inv.loai, congtrinh:inv.congtrinh, sl:inv.sl||undefined,
-           nguoi:inv.nguoi||'', ncc:inv.ncc||'', nd:inv.nd||'', tien:inv.tien||0});
-  const row = document.querySelector('#entry-tbody tr');
-  if(row) row.dataset.editId = String(inv.id);
-  calcSummary();
-  window.scrollTo({top:0, behavior:'smooth'});
-  toast('✏️ Chỉnh sửa rồi nhấn 💾 Lưu / Cập Nhật', 'success');
+  const inv = invoices.find(i => String(i.id) === String(id));
+  if (!inv) return;
+  if (inv.items && inv.items.length) { openDetailEdit(inv); return; }
+  openEntryEdit(inv);
 }
 
-// IMPORT EXCEL → FIREBASE
+// IMPORT / EXPORT (tiếp theo)
 // ══════════════════════════════════════════════════════════════
 
 function openImportModal() {
@@ -1566,7 +1833,7 @@ function _confirmImport() {
 
 
 // ══════════════════════════════════════════════════════════════
-// XUẤT DỮ LIỆU RA EXCEL (Export)
+// IMPORT / EXPORT (Excel modal)
 // ══════════════════════════════════════════════════════════════
 
 function openExportModal() {
@@ -1860,4 +2127,32 @@ function _confirmDelete() {
 }
 
 
+// ══════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════
+
+// Tính thành tiền một dòng: sl × dongia áp chiết khấu ck
+// ck = "" → không CK | "5%" → giảm 5% | "50000" → giảm tiền cố định
+function calcRowMoney(sl, dongia, ck) {
+  const base = sl * dongia;
+  if (!ck) return Math.round(base);
+  if (ck.endsWith('%')) return Math.round(base * (1 - (parseFloat(ck) || 0) / 100));
+  return Math.round(base - parseMoney(ck));
+}
+
+// Trả về tất cả <tr> trong bảng hóa đơn chi tiết
+function getDetailRows() {
+  return [...document.querySelectorAll('#detail-tbody tr')];
+}
+
+// Đọc dữ liệu một dòng trong #detail-tbody
+function getRowData(tr) {
+  return {
+    ten:    (tr.querySelector('[data-f="ten"]')?.value    || '').trim(),
+    dv:     (tr.querySelector('[data-f="dv"]')?.value     || '').trim(),
+    sl:     parseFloat(tr.querySelector('[data-f="sl"]')?.value)  || 1,
+    dongia: parseInt(tr.querySelector('[data-f="dongia"]')?.dataset.raw || '0', 10) || 0,
+    ck:     (tr.querySelector('[data-f="ck"]')?.value     || '').trim(),
+  };
+}
 // ══════════════════════════════════════════════════════════════
