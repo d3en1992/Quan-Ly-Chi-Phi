@@ -1043,7 +1043,7 @@ function exportUngToImage() {
 
   // 2. Thông tin chung
   const ct       = rows[0]?.congtrinh || '(Chưa rõ CT)';
-  const tongTien = rows.reduce((s, r) => s + (r.tien || 0), 0);
+  const tongTien = sumBy(rows, 'tien');
 
   // 3. Đổ dữ liệu vào template
   document.getElementById('pul-ct-name').textContent  = ct;

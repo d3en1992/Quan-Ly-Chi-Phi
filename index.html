@@ -152,8 +152,6 @@
 
     <!-- Nhóm phải: các nút hành động -->
     <div class="topbar-controls">
-      <button id="import-btn" onclick="openImportModal()" title="Import Excel" class="tb-btn">📥</button>
-      <button id="export-btn" onclick="openExportModal()" title="Xuất Excel" class="tb-btn">📤</button>
       <button id="delete-btn" onclick="openDeleteModal()" title="Xóa dữ liệu" class="tb-btn tb-btn-danger">🗑️</button>
       <button id="jb-btn" onclick="openBinModal()" class="tb-btn tb-btn-cloud">☁️ Cloud</button>
     </div>
@@ -558,42 +556,51 @@
     </div>
     <div id="dm-grid" class="settings-grid"></div>
 
-    <!-- ── Panel Sao Lưu & Khôi Phục ── -->
+    <!-- ── Panel Tools ── -->
     <div style="margin-top:28px">
       <div class="section-header">
-        <div class="section-title"><span class="dot"></span>💾 Sao Lưu &amp; Khôi Phục</div>
+        <div class="section-title"><span class="dot"></span>🔧 Tools</div>
         <span style="font-size:12px;color:var(--ink3)" id="backup-status-label"></span>
       </div>
 
       <div class="records-wrap" style="padding:16px 20px">
 
-        <!-- Hàng 1: Nút hành động -->
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-          <button class="btn btn-outline" onclick="exportJSON()" title="Xuất toàn bộ data ra file .json">
-            📤 Xuất JSON
-          </button>
-          <button class="btn btn-outline" onclick="document.getElementById('import-json-input').click()" title="Khôi phục từ file .json đã xuất trước đó">
-            📥 Nhập JSON
-          </button>
-          <button class="btn btn-outline" onclick="_snapshotNow('manual');renderBackupList();toast('✅ Đã tạo bản sao lưu thủ công','success')" title="Tạo bản sao lưu ngay bây giờ">
-            📸 Sao lưu ngay
-          </button>
+        <!-- DATA -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Data</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn btn-outline" onclick="toolExportJSON()" title="Xuất toàn bộ data ra file .json">📤 Export JSON</button>
+            <button class="btn btn-outline" onclick="toolImportJSON()" title="Khôi phục từ file .json đã xuất trước đó">📥 Import JSON</button>
+          </div>
         </div>
 
-        <!-- Hàng 2: Danh sách backup -->
-        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">
-          Bản sao lưu tự động (giữ 3 bản gần nhất)
+        <!-- BACKUP -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Backup</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <button class="btn btn-outline" onclick="toolBackupNow()" title="Tạo bản sao lưu ngay bây giờ">📸 Backup now</button>
+            <button class="btn btn-outline" onclick="toolRestoreBackup()" title="Xem danh sách backup và chọn bản để khôi phục">↩ Restore backup</button>
+          </div>
+          <div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Bản sao lưu tự động (giữ 3 bản gần nhất)</div>
+          <div id="backup-list-wrap">
+            <div style="color:var(--ink3);font-size:13px;padding:8px 0">Đang tải...</div>
+          </div>
         </div>
-        <div id="backup-list-wrap">
-          <div style="color:var(--ink3);font-size:13px;padding:8px 0">Đang tải...</div>
+
+        <!-- EXCEL -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Excel</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn btn-outline" onclick="toolImportExcel()" title="Import dữ liệu từ file Excel (.xlsx/.xls)">📥 Import Excel</button>
+          </div>
         </div>
 
         <!-- Mô tả -->
-        <div style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:6px;border:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.7">
+        <div style="padding:10px 14px;background:var(--bg);border-radius:6px;border:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.7">
           <strong style="color:var(--ink2)">Cách hoạt động:</strong><br>
           • <b>Tự động</b>: App tạo bản sao lưu sau 1 phút kể từ khi mở, sau đó mỗi 10 phút một lần<br>
-          • <b>Xuất JSON</b>: Tải file về máy — dùng để backup thủ công hoặc chuyển thiết bị<br>
-          • <b>Nhập JSON</b>: Khôi phục từ file .json (app sẽ backup dữ liệu hiện tại trước khi ghi đè)<br>
+          • <b>Export JSON</b>: Tải file về máy — dùng để backup thủ công hoặc chuyển thiết bị<br>
+          • <b>Import JSON</b>: Khôi phục từ file .json (app sẽ backup dữ liệu hiện tại trước khi ghi đè)<br>
           • <b>Data version</b>: <span id="data-version-badge" style="background:var(--green);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700"></span>
         </div>
       </div>
@@ -1001,12 +1008,14 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/dexie@4/dist/dexie.min.js"></script>
-<script src="lib.js"></script>
-<script src="utils.js"></script>
+<script src="core.js"></script>
+<script src="tienich.js"></script>
 <script src="hoadon.js"></script>
+<script src="danhmuc.js"></script>
+<script src="nhapxuat.js"></script>
 <script src="chamcong.js"></script>
 <script src="thietbi.js"></script>
-<script src="doanhtu.js"></script>
+<script src="doanhthu.js"></script>
 <script src="main.js"></script>
 
 
