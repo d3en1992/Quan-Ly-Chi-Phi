@@ -197,13 +197,9 @@ function buildCCRow(w,num){
       <input class="cc-name-input" data-cc="name" list="cc-name-dl"
         value="${x(w?w.name||'':''||'')}" placeholder="Tên...">
     </td>
-    <td class="col-tp" style="padding:0">
-      <select data-cc="tp" ${isKnown?'disabled':''} style="width:100%;border:none;background:transparent;padding:5px 4px;font-size:12px;font-weight:700;outline:none;color:var(--ink);${isKnown?'opacity:0.65;cursor:not-allowed':'cursor:pointer'}">
-        <option value="">—</option>
-        <option value="C" ${role==='C'?'selected':''}>C</option>
-        <option value="T" ${role==='T'?'selected':''}>T</option>
-        <option value="P" ${role==='P'?'selected':''}>P</option>
-      </select>
+    <td class="col-tp" style="padding:4px 2px;text-align:center">
+      <input type="hidden" data-cc="tp" value="${role}">
+      <span class="cc-tp-display" style="display:inline-block;min-width:22px;font-size:12px;font-weight:700;color:${role?'var(--ink)':'var(--ink3)'}">${role||'—'}</span>
     </td>
     ${ds.map((v,i)=>`<td class="col-day" style="padding:0"><input class="cc-day-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
       data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off" inputmode="decimal"></td>`).join('')}
@@ -229,6 +225,7 @@ function buildCCRow(w,num){
   tr.querySelector('[data-cc="hdml"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
   tr.querySelector('[data-cc="tru"]').addEventListener('input',function(){ onCCMoneyKey(this); updateCCSumRow(); });
   tr.querySelector('[data-cc="name"]').addEventListener('input',function(){ onCCNameInput(this); updateCCSumRow(); });
+  tr.querySelector('[data-cc="name"]').addEventListener('blur',function(){ if(this.value.trim()) this.value=this.value.trim().toUpperCase(); });
   tr.querySelector('[data-cc="nd"]').addEventListener('input',updateCCSumRow);
   calcCCRow(tr);
   return tr;
@@ -252,18 +249,15 @@ function onCCNameInput(inp){
   // Auto-fill T/P nếu thợ đã có trong danh mục
   const tr=inp.closest('tr');
   if(!tr) return;
-  const tpSel=tr.querySelector('[data-cc="tp"]');
-  if(!tpSel) return;
+  const tpInput=tr.querySelector('[data-cc="tp"]');
+  const tpDisplay=tr.querySelector('.cc-tp-display');
+  if(!tpInput) return;
   const known=cats.congNhan.find(n=>n.toLowerCase()===nameLower);
-  if(known){
-    tpSel.value=cnRoles[known]||'';
-    tpSel.disabled=true;
-    tpSel.style.opacity='0.65';
-    tpSel.style.cursor='not-allowed';
-  } else {
-    tpSel.disabled=false;
-    tpSel.style.opacity='1';
-    tpSel.style.cursor='pointer';
+  const role=known?(cnRoles[known]||''):'';
+  tpInput.value=role;
+  if(tpDisplay){
+    tpDisplay.textContent=role||'—';
+    tpDisplay.style.color=role?'var(--ink)':'var(--ink3)';
   }
 }
 
@@ -735,6 +729,7 @@ function renderCCTLT(){
         <td style="text-align:center;padding:4px"><input type="checkbox" class="cc-tlt-chk" style="width:15px;height:15px;cursor:pointer"></td>
         <td style="${mono};font-size:10px;color:var(--ink2);white-space:nowrap">${fWk?viShort(r.fromDate):'Tổng'}<br><span style="color:var(--ink3)">${fWk?viShort(r.toDate):r.tc+' công'}</span></td>
         <td style="font-weight:700;font-size:13px">${x(r.name||'—')}</td>
+        <td style="text-align:center;font-size:12px;font-weight:700;color:var(--ink2)">${cnRoles[r.name]||'—'}</td>
         ${r.d.map(v=>`<td style="text-align:center;${mono};font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
         <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
         <td style="text-align:right;${mono};font-weight:700;font-size:13px;color:var(--green)">${tcLuong?numFmt(tcLuong):'—'}</td>

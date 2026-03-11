@@ -608,18 +608,24 @@ function tbRenderThongKeVon() {
   }
 
   tbody.innerHTML = paged.map(item => {
-    const tags = Object.entries(item.cts)
+    const ctEntries = Object.entries(item.cts);
+    const maxShow = 2;
+    const shown = ctEntries.slice(0, maxShow);
+    const more = ctEntries.length - maxShow;
+    const tags = shown
       .map(([ct, sl]) =>
-        `<span style="background:#e8f0fe;color:#1967d2;padding:2px 7px;border-radius:10px;font-size:10px;display:inline-flex;align-items:center;max-width:150px;overflow:hidden">` +
-        `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${x(ct)}</span>` +
-        `<span style="white-space:nowrap;flex-shrink:0">:\u00a0${sl}</span>` +
+        `<span style="display:flex;background:#e8f0fe;color:#1967d2;padding:2px 7px;border-radius:10px;font-size:10px;align-items:center;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">` +
+        `${x(ct)}: ${sl}` +
         `</span>`)
       .join('');
+    const moreTag = more > 0
+      ? `<span style="background:#eeece7;color:var(--ink2);padding:2px 6px;border-radius:10px;font-size:10px;white-space:nowrap;font-weight:700">+${more}</span>`
+      : '';
     return `<tr>
       <td class="tb-name-col"><span class="tb-name-cell" style="font-weight:600;font-size:13px">${x(item.ten)}</span></td>
       <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;color:var(--ink)">${item.total}</td>
       <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:#1a7a45">${item.kho || 0}</td>
-      <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">${tags || '<span style="color:var(--ink3);font-size:12px">—</span>'}</div></td>
+      <td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">${tags ? tags + moreTag : '<span style="color:var(--ink3);font-size:12px">—</span>'}</div></td>
     </tr>`;
   }).join('');
 

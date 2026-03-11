@@ -261,27 +261,18 @@ function _confirmImport() {
   if(!result) return;
   ov.style.display = 'none';
 
-  // Merge vào localStorage
-  if(result.inv.length) {
-    const existing = load('inv_v3',[]);
-    localStorage.setItem('inv_v3', JSON.stringify([...result.inv, ...existing]));
-    invoices = load('inv_v3',[]);
-  }
-  if(result.ung.length) {
-    const existing = load('ung_v1',[]);
-    localStorage.setItem('ung_v1', JSON.stringify([...result.ung, ...existing]));
-    ungRecords = load('ung_v1',[]);
-  }
-  if(result.cc.length) {
-    const existing = load('cc_v2',[]);
-    localStorage.setItem('cc_v2', JSON.stringify([...result.cc, ...existing]));
-    ccData = load('cc_v2',[]);
-  }
-  if(result.tb.length) {
-    const existing = load('tb_v1',[]);
-    localStorage.setItem('tb_v1', JSON.stringify([...result.tb, ...existing]));
-    tbData = load('tb_v1',[]);
-  }
+  // Merge vào localStorage + IDB (dùng mergeUnique để dedup theo id+updatedAt)
+  const _importMerge = (key, incoming, assign) => {
+    if (!incoming.length) return;
+    const merged = mergeUnique(load(key, []), incoming);
+    localStorage.setItem(key, JSON.stringify(merged));
+    _dbSave(key, merged).catch(()=>{});
+    if (assign) assign(load(key, []));
+  };
+  _importMerge('inv_v3', result.inv, v => { invoices    = v; });
+  _importMerge('ung_v1', result.ung, v => { ungRecords  = v; });
+  _importMerge('cc_v2',  result.cc,  v => { ccData      = v; });
+  _importMerge('tb_v1',  result.tb,  v => { tbData      = v; });
 
   // Merge danh mục
   const c = result.cats;
@@ -304,28 +295,9 @@ function _confirmImport() {
 
   toast('✅ Import thành công!', 'success');
 
-  // Push lên Firebase tất cả các năm có trong data
-  if(fbReady()) {
-    showSyncBanner('☁️ Đang lưu lên Firebase...');
-    const years = new Set();
-    result.inv.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.slice(0,4))); });
-    result.ung.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.slice(0,4))); });
-    result.cc.forEach(i=>{ if(i.fromDate) years.add(parseInt(i.fromDate.slice(0,4))); });
-    if(!years.size) years.add(activeYear||new Date().getFullYear());
-
-    let pending = years.size;
-    years.forEach(yr => {
-      const payload = fbYearPayload(yr);
-      fsSet(fbDocYear(yr), payload).then(()=>{
-        pending--;
-        if(pending===0) {
-          fsSet(fbDocCats(), fbCatsPayload()).then(()=>{
-            showSyncBanner('✅ Đã lưu lên Firebase!', 3000);
-          });
-        }
-      }).catch(()=>{ pending--; });
-    });
-  }
+  // Delegate sync lên cloud cho sync.js — pull-merge-push toàn bộ năm
+  // Không gọi Firebase trực tiếp ở đây để tránh race condition với pull
+  if (typeof processQueue === 'function') processQueue();
 }
 
 

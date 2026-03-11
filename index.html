@@ -147,23 +147,24 @@
         <select id="global-year" onchange="onYearChange()" class="year-select">
         </select>
       </div>
-      <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
+      <div class="top-stat top-stat-desktop"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
     </div>
 
     <!-- Nhóm phải: các nút hành động -->
     <div class="topbar-controls">
+      <div class="top-stat top-stat-mobile"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total-mobile">0đ</span></div>
       <button id="jb-btn" onclick="openBinModal()" class="tb-btn tb-btn-cloud">☁️ Cloud</button>
     </div>
   </div>
   <!-- Hàng 2: Nav tabs -->
   <nav class="topbar-nav">
-    <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">Nhập Chi Phí</button>
-    <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công</button>
-    <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng</button>
-    <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 Theo dõi TB</button>
-    <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
-    <button class="nav-btn" data-page="doanhthu" onclick="goPage(this,'doanhthu')">💵 Doanh Thu</button>
-    <button class="nav-btn" data-page="dashboard" onclick="goPage(this,'dashboard')">📊 Dashboard</button>
+    <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">NHẬP CHI PHÍ</button>
+    <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 CHẤM CÔNG</button>
+    <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 TIỀN ỨNG</button>
+    <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 THEO DÕI TB</button>
+    <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ DANH MỤC</button>
+    <button class="nav-btn" data-page="doanhthu" onclick="goPage(this,'doanhthu')">💵 DOANH THU</button>
+    <button class="nav-btn" data-page="dashboard" onclick="goPage(this,'dashboard')">📊 DASHBOARD</button>
   </nav>
 </div>
 
@@ -274,6 +275,7 @@
                   <th style="width:145px;text-align:right">ĐƠN GIÁ (đ)</th>
                   <th style="width:120px">CHIẾT KHẤU</th>
                   <th style="width:145px;text-align:right">THÀNH TIỀN (đ)</th>
+                  <th style="width:120px">NGƯỜI TH</th>
                   <th class="col-del"></th>
                 </tr>
               </thead>
@@ -768,7 +770,7 @@
                 <input type="checkbox" id="cc-tlt-chk-all" title="Chọn tất cả"
                   onchange="document.querySelectorAll('.cc-tlt-chk').forEach(x=>x.checked=this.checked)">
               </th>
-              <th>Tuần</th><th>Tên CN</th>
+              <th>Tuần</th><th>Tên CN</th><th style="text-align:center;width:36px">T/P</th>
               <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
               <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
               <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
@@ -911,84 +913,227 @@
   <!-- PAGE: DOANH THU & CÔNG NỢ -->
   <div class="page" id="page-doanhthu">
 
-    <!-- PHẦN A: Khai báo Hợp đồng -->
-    <div class="section-header">
-      <div class="section-title"><span class="dot"></span>📋 Khai Báo Hợp Đồng</div>
-    </div>
-    <div class="dt-section">
-      <div class="dt-form-grid">
-        <div class="dt-field" style="grid-column:1/-1">
-          <label>Tên Công Trình *</label>
-          <select id="hd-ct-sel" onchange="hdLoadCT()"><option value="">-- Chọn --</option></select>
-        </div>
-        <div class="dt-field">
-          <label>Giá Trị Hợp Đồng (đ)</label>
-          <input type="text" id="hd-giatri" placeholder="VD: 500.000.000" oninput="fmtInputMoney(this)">
-        </div>
-        <div class="dt-field">
-          <label>Phát Sinh Thêm (đ)</label>
-          <input type="text" id="hd-phatsinh" placeholder="VD: 20.000.000" oninput="fmtInputMoney(this)">
-        </div>
-        <div class="dt-field" style="justify-content:flex-end">
-          <label style="visibility:hidden">_</label>
-          <button class="btn btn-gold" style="min-height:38px" onclick="saveHopDong()">💾 Lưu Hợp Đồng</button>
-        </div>
-      </div>
-      <div id="hd-list-wrap" style="margin-top:16px"></div>
+    <!-- Sub-nav -->
+    <div class="sub-nav">
+      <button class="sub-nav-btn active" id="dt-sub-khaibao-btn" onclick="dtGoSub(this,'dt-sub-khaibao')">📋 KHAI BÁO</button>
+      <button class="sub-nav-btn" id="dt-sub-thongke-btn" onclick="dtGoSub(this,'dt-sub-thongke')">📊 THỐNG KÊ</button>
     </div>
 
-    <!-- PHẦN B: Ghi nhận Thu tiền -->
-    <div class="section-header" style="margin-top:8px">
-      <div class="section-title"><span class="dot"></span>💰 Ghi Nhận Thu Tiền</div>
-    </div>
-    <div class="dt-section">
-      <div class="dt-form-grid">
-        <div class="dt-field">
-          <label>Công Trình *</label>
-          <select id="thu-ct-sel"><option value="">-- Chọn --</option></select>
+    <!-- ── SUB TAB 1: KHAI BÁO ─────────────────────────────── -->
+    <div class="sub-page active" id="dt-sub-khaibao">
+
+      <!-- PHẦN 1: HỢP ĐỒNG CHÍNH -->
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>📋 Khai Báo Hợp Đồng Chính</div>
+      </div>
+      <div class="dt-section">
+        <div class="dt-form-grid">
+          <div class="dt-field" style="grid-column:1/-1">
+            <label>Tên Công Trình *</label>
+            <input type="text" id="hdc-ct-input" list="hdc-ct-list"
+                   placeholder="Chọn hoặc nhập tên mới..." autocomplete="off">
+            <datalist id="hdc-ct-list"></datalist>
+          </div>
+          <div class="dt-field">
+            <label>Giá Trị HĐ Chính (đ)</label>
+            <input type="text" id="hdc-giatri" placeholder="0"
+                   oninput="fmtInputMoney(this);hdcUpdateTotal()">
+          </div>
+          <div class="dt-field">
+            <label>Giá Trị HĐ Phụ (đ)</label>
+            <input type="text" id="hdc-giatriphu" placeholder="0"
+                   oninput="fmtInputMoney(this);hdcUpdateTotal()">
+          </div>
+          <div class="dt-field">
+            <label>Phát Sinh Thêm (đ)</label>
+            <input type="text" id="hdc-phatsinh" placeholder="0"
+                   oninput="fmtInputMoney(this);hdcUpdateTotal()">
+          </div>
+          <div class="dt-field" style="justify-content:flex-end">
+            <label style="visibility:hidden">_</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span id="hdc-tong-label" style="font-size:12px;color:var(--ink3)"></span>
+              <button class="btn btn-gold" id="hdc-save-btn" style="min-height:38px" onclick="saveHopDongChinh()">💾 Lưu</button>
+            </div>
+          </div>
         </div>
-        <div class="dt-field">
-          <label>Ngày Thu *</label>
-          <input type="date" id="thu-ngay">
-        </div>
-        <div class="dt-field">
-          <label>Số Tiền Thu (đ) *</label>
-          <input type="text" id="thu-tien" placeholder="VD: 100.000.000" oninput="fmtInputMoney(this)">
-        </div>
-        <div class="dt-field">
-          <label>Nội Dung / Đợt</label>
-          <input type="text" id="thu-nd" placeholder="VD: Đợt 1, Nghiệm thu móng...">
-        </div>
-        <div class="dt-field" style="justify-content:flex-end">
-          <label style="visibility:hidden">_</label>
-          <button class="btn btn-gold" style="min-height:38px" onclick="saveThuRecord()">+ Ghi nhận Thu</button>
-        </div>
+        <input type="hidden" id="hdc-edit-id">
       </div>
 
-      <!-- Lịch sử thu -->
-      <div style="margin-top:16px">
-        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">
-          Lịch Sử Thu Tiền <span id="thu-count-badge" style="font-weight:400;color:var(--ink3)"></span>
+      <!-- PHẦN 2: GHI NHẬN THU TIỀN -->
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title"><span class="dot"></span>💰 Ghi Nhận Thu Tiền</div>
+      </div>
+      <div class="dt-section">
+        <div class="dt-form-grid">
+          <div class="dt-field">
+            <label>Công Trình *</label>
+            <input type="text" id="thu-ct-input" list="thu-ct-list"
+                   placeholder="Chọn hoặc nhập..." autocomplete="off">
+            <datalist id="thu-ct-list"></datalist>
+          </div>
+          <div class="dt-field">
+            <label>Ngày Thu *</label>
+            <input type="date" id="thu-ngay">
+          </div>
+          <div class="dt-field">
+            <label>Số Tiền Thu (đ) *</label>
+            <input type="text" id="thu-tien" placeholder="0" oninput="fmtInputMoney(this)">
+          </div>
+          <div class="dt-field">
+            <label>Người TH</label>
+            <input type="text" id="thu-nguoi" list="thu-nguoi-list"
+                   placeholder="Chọn hoặc nhập..." autocomplete="off"
+                   onblur="this.value=this.value.trim().toUpperCase()">
+            <datalist id="thu-nguoi-list"></datalist>
+          </div>
+          <div class="dt-field">
+            <label>Nội Dung / Đợt</label>
+            <input type="text" id="thu-nd" placeholder="VD: Đợt 1, Nghiệm thu móng...">
+          </div>
+          <div class="dt-field" style="justify-content:flex-end">
+            <label style="visibility:hidden">_</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm" id="thu-cancel-btn"
+                      style="display:none" onclick="_thuCancelEdit()">✕ Hủy</button>
+              <button class="btn btn-gold" id="thu-save-btn" style="min-height:38px"
+                      onclick="saveThuRecord()">+ Ghi nhận Thu</button>
+            </div>
+          </div>
         </div>
-        <div class="records-wrap" style="overflow-x:auto">
+        <input type="hidden" id="thu-edit-id">
+      </div>
+
+      <!-- PHẦN 3: HỢP ĐỒNG THẦU PHỤ -->
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title"><span class="dot"></span>🤝 Khai Báo Hợp Đồng Thầu Phụ</div>
+      </div>
+      <div class="dt-section">
+        <div class="dt-form-grid">
+          <div class="dt-field" style="grid-column:1/-1">
+            <label>Tên Công Trình *</label>
+            <input type="text" id="hdtp-ct-input" list="hdtp-ct-list"
+                   placeholder="Chọn hoặc nhập tên mới..." autocomplete="off">
+            <datalist id="hdtp-ct-list"></datalist>
+          </div>
+          <div class="dt-field">
+            <label>Tên Thầu Phụ *</label>
+            <input type="text" id="hdtp-thauphu" list="hdtp-tp-list"
+                   placeholder="Chọn hoặc nhập..." autocomplete="off"
+                   onblur="this.value=this.value.trim().toUpperCase()">
+            <datalist id="hdtp-tp-list"></datalist>
+          </div>
+          <div class="dt-field">
+            <label>Giá Trị HĐ Thầu Phụ (đ)</label>
+            <input type="text" id="hdtp-giatri" placeholder="0"
+                   oninput="fmtInputMoney(this);hdtpUpdateTotal()">
+          </div>
+          <div class="dt-field">
+            <label>Phát Sinh Thêm (đ)</label>
+            <input type="text" id="hdtp-phatsinh" placeholder="0"
+                   oninput="fmtInputMoney(this);hdtpUpdateTotal()">
+          </div>
+          <div class="dt-field">
+            <label>Nội Dung</label>
+            <input type="text" id="hdtp-nd" placeholder="VD: Ép cọc, Móng, Thô...">
+          </div>
+          <div class="dt-field" style="justify-content:flex-end">
+            <label style="visibility:hidden">_</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span id="hdtp-tong-label" style="font-size:12px;color:var(--ink3)"></span>
+              <button class="btn btn-gold" id="hdtp-save-btn" style="min-height:38px" onclick="saveHopDongThauPhu()">💾 Lưu</button>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="hdtp-edit-id">
+      </div>
+
+    </div><!-- /dt-sub-khaibao -->
+
+    <!-- ── SUB TAB 2: THỐNG KÊ ─────────────────────────────── -->
+    <div class="sub-page" id="dt-sub-thongke">
+
+      <!-- BẢNG 1: Hợp đồng chính -->
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>📋 Hợp Đồng Chính Công Ty</div>
+      </div>
+      <div class="records-wrap" style="margin-bottom:24px">
+        <div style="overflow-x:auto">
           <table class="thu-table">
             <thead>
-              <tr>
-                <th style="text-align:left">Ngày</th>
-                <th style="text-align:left">Công Trình</th>
-                <th style="text-align:right">Số Tiền</th>
-                <th style="text-align:left">Nội Dung</th>
-                <th></th>
+              <tr style="font-size:11px;color:var(--ink3);border-bottom:2px solid var(--line)">
+                <th style="text-align:left;padding:8px 12px;font-weight:700">Công Trình</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">HĐ Chính</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">HĐ Phụ</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Phát Sinh</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Tổng HĐ</th>
+                <th style="padding:8px 6px"></th>
+                <th style="padding:8px 6px"></th>
+              </tr>
+            </thead>
+            <tbody id="hdc-tbody"></tbody>
+          </table>
+        </div>
+        <div id="hdc-empty" style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;display:none">Chưa có hợp đồng nào</div>
+        <div id="hdc-pagination" style="padding:8px 16px;border-top:1px solid var(--line);display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:1px"></div>
+      </div>
+
+      <!-- BẢNG 2: Hợp đồng thầu phụ -->
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>🤝 Hợp Đồng Thầu Phụ</div>
+      </div>
+      <div class="records-wrap" style="margin-bottom:24px">
+        <div style="overflow-x:auto">
+          <table class="thu-table">
+            <thead>
+              <tr style="font-size:11px;color:var(--ink3);border-bottom:2px solid var(--line)">
+                <th style="text-align:left;padding:8px 12px;font-weight:700">Công Trình</th>
+                <th style="text-align:left;padding:8px 10px;font-weight:700">Thầu Phụ</th>
+                <th style="text-align:left;padding:8px 10px;font-weight:700">Nội Dung</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Giá Trị HĐ</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Phát Sinh</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Tổng</th>
+                <th style="padding:8px 6px"></th>
+                <th style="padding:8px 6px"></th>
+              </tr>
+            </thead>
+            <tbody id="hdtp-tbody"></tbody>
+          </table>
+        </div>
+        <div id="hdtp-empty" style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;display:none">Chưa có hợp đồng thầu phụ</div>
+        <div id="hdtp-pagination" style="padding:8px 16px;border-top:1px solid var(--line);display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:1px"></div>
+      </div>
+
+      <!-- BẢNG 3: Lịch sử thu tiền -->
+      <div class="section-header">
+        <div class="section-title">
+          <span class="dot"></span>💰 Lịch Sử Thu Tiền
+          <span id="thu-count-badge" style="font-size:12px;font-weight:400;color:var(--ink3);margin-left:4px"></span>
+        </div>
+      </div>
+      <div class="records-wrap" style="margin-bottom:24px">
+        <div style="overflow-x:auto">
+          <table class="thu-table">
+            <thead>
+              <tr style="font-size:11px;color:var(--ink3);border-bottom:2px solid var(--line)">
+                <th style="text-align:left;padding:8px 12px;font-weight:700">Ngày</th>
+                <th style="text-align:left;padding:8px 10px;font-weight:700">Công Trình</th>
+                <th style="text-align:right;padding:8px 10px;font-weight:700">Số Tiền</th>
+                <th style="text-align:left;padding:8px 10px;font-weight:700">Người TH</th>
+                <th style="text-align:left;padding:8px 10px;font-weight:700">Nội Dung</th>
+                <th style="padding:8px 6px"></th>
+                <th style="padding:8px 6px"></th>
               </tr>
             </thead>
             <tbody id="thu-tbody"></tbody>
           </table>
-          <div id="thu-empty" style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;display:none">
-            Chưa có lịch sử thu tiền
-          </div>
         </div>
+        <div id="thu-empty" style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;display:none">Chưa có lịch sử thu tiền</div>
+        <div id="thu-pagination" style="padding:8px 16px;border-top:1px solid var(--line);display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:1px"></div>
       </div>
-    </div>
+
+    </div><!-- /dt-sub-thongke -->
+
   </div>
 
 </div><!-- /content -->

@@ -699,129 +699,24 @@ function estimateYearKb(yr) {
 // Key lưu thời điểm sync thành công cuối cùng (ms timestamp)
 const LAST_SYNC_KEY = 'lastSyncAt';
 
-let _fbPushing = false;
+// fbPushAll / gsLoadAll — thin wrappers, toàn bộ logic nằm trong sync.js
+// Không gọi Firebase trực tiếp ở đây nữa.
+
 function fbPushAll() {
-  // Delegate sang sync.js nếu đã load (pushChanges xử lý all-years + pull-merge-push)
   if (typeof pushChanges === 'function') { pushChanges(); return; }
-  if (!fbReady()) return;
-  if (_fbPushing) { save._t = setTimeout(fbPushAll, 3000); return; }
-
-  const yr = activeYear || new Date().getFullYear();
-  const ys = String(yr);
-
-  // ── Incremental sync: chỉ push nếu có record thay đổi ──────────
-  const lastSyncAt = parseInt(localStorage.getItem(LAST_SYNC_KEY) || '0');
-
-  if (lastSyncAt > 0) {
-    // Lọc record thay đổi kể từ lần sync cuối
-    const changedInvoices = load('inv_v3',[]).filter(r => r.updatedAt > lastSyncAt && r.ngay?.startsWith(ys));
-    const changedUng      = load('ung_v1',[]).filter(r => r.updatedAt > lastSyncAt && r.ngay?.startsWith(ys));
-    const changedCC       = load('cc_v2',[]).filter(r => r.updatedAt > lastSyncAt && r.fromDate?.startsWith(ys));
-    const changedTB       = load('tb_v1',[]).filter(r => r.updatedAt > lastSyncAt && r.ngay?.startsWith(ys));
-    const changedThu      = load('thu_v1',[]).filter(r => r.updatedAt > lastSyncAt && r.ngay?.startsWith(ys));
-
-    // Không có gì thay đổi → bỏ qua push
-    if (!changedInvoices.length && !changedUng.length && !changedCC.length &&
-        !changedTB.length && !changedThu.length) {
-      return;
-    }
-    // Có thay đổi → fall through để push toàn bộ năm (tránh delta ghi đè cloud)
-  }
-
-  // ── Full push (lastSyncAt chưa có — lần đầu hoặc sau khi reset) ─
-  const payload = fbYearPayload(yr);
-  const kb = Math.round(JSON.stringify(payload).length/1024*10)/10;
-  _fbPushing = true;
-  _ensureSyncDot(); _setSyncDot('syncing');
-  showSyncBanner('☁️ Đang lưu (~' + kb + 'kb)...');
-  fsSet(fbDocYear(yr), payload).then(res=>{
-    _fbPushing = false;
-    if (res.fields) {
-      // Ghi thời điểm sync thành công
-      localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));
-      _setSyncDot('');
-      showSyncBanner('✅ Đã lưu cloud (~' + kb + 'kb)', 2000);
-      updateJbBtn();
-      // Push cats async
-      fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
-    } else {
-      _setSyncDot('error');
-      const err = res.error?.message || JSON.stringify(res.error) || '?';
-      if (err.includes('PERMISSION_DENIED'))
-        showSyncBanner('⚠️ Lỗi quyền truy cập — kiểm tra Security Rules', 5000);
-      else
-        showSyncBanner('⚠️ Lỗi lưu: ' + err.substring(0,60), 4000);
-    }
-  }).catch(()=>{ _fbPushing=false; _setSyncDot('offline'); showSyncBanner('⚠️ Mất kết nối internet', 3000); });
+  console.warn('[fbPushAll] sync.js chưa load — push bị bỏ qua');
 }
 
-// ── Alias jbPushAll cho các nơi gọi cũ ───────────────────
 function jbPushAll() { fbPushAll(); }
 
-// ══ TẢI TỪ CLOUD ══════════════════════════════════════════
 function gsLoadAll(callback) {
-  // Delegate sang sync.js pullChanges nếu đã load
   if (typeof pullChanges === 'function') {
     const yr = activeYear || new Date().getFullYear();
     pullChanges(yr, d => callback(d ? d : null));
     return;
   }
-  if (!fbReady()) { callback(null); return; }
-  const yr = activeYear || new Date().getFullYear();
-  const ys = String(yr);
-  showSyncBanner('⏳ Đang tải năm ' + yr + '...');
-
-  Promise.all([
-    fsGet(fbDocYear(yr)),
-    fsGet(fbDocCats())
-  ]).then(([yearDoc, catsDoc]) => {
-    // Apply year data
-    const yearData = fsUnwrap(yearDoc);
-    if (yearData) {
-      // Helper: merge cloud records with all local records by id+updatedAt.
-      // Cloud record wins if same id and newer updatedAt; local record is kept if not in cloud.
-      const mergeArr = (key, expanded) => {
-        const merged = mergeUnique(load(key, []), expanded);
-        localStorage.setItem(key, JSON.stringify(merged));
-        // Sync cloud-loaded data into IndexedDB so dbInit() won't overwrite it on next boot
-        _dbSave(key, merged).catch(e => console.warn('[IDB] gsLoadAll save lỗi:', key, e));
-      };
-      if(yearData.i) mergeArr('inv_v3', expandInv(yearData.i));
-      if(yearData.u) mergeArr('ung_v1', expandUng(yearData.u));
-      if(yearData.c) mergeArr('cc_v2', expandCC(yearData.c));
-      if(yearData.t) mergeArr('tb_v1', expandTb(yearData.t));
-    }
-    // Apply cats
-    const catsData = fsUnwrap(catsDoc);
-    if (catsData && catsData.cats) {
-      const ct = catsData.cats;
-      if(ct.ct)    { localStorage.setItem('cat_ct',    JSON.stringify(ct.ct));    _dbSave('cat_ct',    ct.ct).catch(()=>{}); }
-      if(ct.loai)  { localStorage.setItem('cat_loai',  JSON.stringify(ct.loai));  _dbSave('cat_loai',  ct.loai).catch(()=>{}); }
-      if(ct.ncc)   { localStorage.setItem('cat_ncc',   JSON.stringify(ct.ncc));   _dbSave('cat_ncc',   ct.ncc).catch(()=>{}); }
-      if(ct.nguoi) { localStorage.setItem('cat_nguoi', JSON.stringify(ct.nguoi)); _dbSave('cat_nguoi', ct.nguoi).catch(()=>{}); }
-    }
-    // Apply hopDong (xuyên suốt, không theo năm)
-    if (catsData && catsData.hopDong) {
-      localStorage.setItem('hopdong_v1', JSON.stringify(catsData.hopDong));
-      hopDongData = catsData.hopDong;
-    }
-    // Apply thu (theo năm — merge như ungRecords)
-    if (yearData && yearData.thu) {
-      const mergedThu = mergeUnique(load('thu_v1', []), yearData.thu);
-      localStorage.setItem('thu_v1', JSON.stringify(mergedThu));
-      _dbSave('thu_v1', mergedThu).catch(e => console.warn('[IDB] gsLoadAll save lỗi: thu_v1', e));
-      thuRecords = load('thu_v1', []);
-    }
-    hideSyncBanner();
-    callback(yearData || catsData || {});
-
-    // Nếu năm này chưa có trên cloud → push ngay
-    if (!yearData) setTimeout(()=>fbPushAll(), 1500);
-  }).catch(e => {
-    hideSyncBanner();
-    console.warn('gsLoadAll error:', e);
-    callback(null);
-  });
+  console.warn('[gsLoadAll] sync.js chưa load — pull bị bỏ qua');
+  if (callback) callback(null);
 }
 
 // ══ CẬP NHẬT NÚT CLOUD ════════════════════════════════════
@@ -1039,11 +934,8 @@ function saveCats(catId) {
     if (catId === 'congTrinh') {
       localStorage.setItem('cat_ct_years', JSON.stringify(cats.congTrinhYears || {}));
     }
-    clearTimeout(save._t);
-    save._t = setTimeout(()=>{
-      if (!fbReady()) return;
-      fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
-    }, 1500);
+    // Delegate sang sync.js — cats được push cùng pushChanges(), không gọi Firebase trực tiếp
+    if (typeof processQueue === 'function') processQueue();
   }
 }
 

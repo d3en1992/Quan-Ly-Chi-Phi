@@ -46,12 +46,7 @@ function init() {
     window.addEventListener('resize', update);
   })();
 
-  // X: Topbar compact khi cuộn
-  (function initTopbarCompact() {
-    window.addEventListener('scroll', () => {
-      document.querySelector('.topbar')?.classList.toggle('compact', window.scrollY > 80);
-    }, { passive: true });
-  })();
+  // Topbar luôn cố định — không dùng compact effect khi cuộn
 
   // Tải dữ liệu mới nhất từ cloud (nếu đã có Bin ID)
   gsLoadAll(function(data) {

@@ -365,6 +365,10 @@ function rebuildEntrySelects() {
 let ungRecords = load('ung_v1', []);
 let filteredUng = [];
 let ungPage = 1;
+const UNG_TP_PG = 10;
+const UNG_CN_PG = 5;
+let ungTpPage = 1;
+let ungCnPage = 1;
 
 function initUngTable(n=4) {
   document.getElementById('ung-tbody').innerHTML='';
@@ -507,7 +511,7 @@ function buildUngFilters() {
 }
 
 function filterAndRenderUng() {
-  ungPage=1;
+  ungPage=1; ungTpPage=1; ungCnPage=1;
   const q=document.getElementById('ung-search').value.toLowerCase();
   const fTp=document.getElementById('uf-tp').value;
   const fCt=document.getElementById('uf-ct').value;
@@ -525,10 +529,22 @@ function filterAndRenderUng() {
   renderUngTable();
 }
 
-function _ungSectionHTML(recs, title, accentColor) {
-  if (!recs.length) return '';
+function _ungSectionHTML(pagedRecs, allRecs, title, accentColor, curPage, pgSize, gotoFn) {
+  if (!allRecs.length) return '';
   const mono = "font-family:'IBM Plex Mono',monospace";
-  const sumSec = sumBy(recs, 'tien');
+  const sumSec = sumBy(allRecs, 'tien');
+  const tp = Math.ceil(allRecs.length / pgSize);
+  let pagHtml = '';
+  if (tp > 1) {
+    const btns = [];
+    for (let p = 1; p <= Math.min(tp, 10); p++) {
+      btns.push(`<button class="page-btn ${p===curPage?'active':''}" onclick="${gotoFn}(${p})">${p}</button>`);
+    }
+    pagHtml = `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--line);background:#f3f1ec;font-size:12px;color:var(--ink2)">
+      <span>${allRecs.length} dòng · <span style="${mono};font-weight:700;color:${accentColor}">${fmtS(sumSec)}</span></span>
+      <div class="page-btns">${btns.join('')}</div>
+    </div>`;
+  }
   return `<div style="margin-bottom:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--bg);border-radius:6px;margin-bottom:8px;border-left:3px solid ${accentColor}">
       <span style="font-weight:700;font-size:12px;color:var(--ink2)">${title}</span>
@@ -544,7 +560,7 @@ function _ungSectionHTML(recs, title, accentColor) {
           <th>Ngày</th><th>Người Nhận</th><th>Công Trình</th><th>Nội Dung</th>
           <th style="text-align:right">Số Tiền Ứng</th><th></th>
         </tr></thead>
-        <tbody>${recs.map(r=>`<tr>
+        <tbody>${pagedRecs.map(r=>`<tr>
           <td style="text-align:center;padding:4px">
             <input type="checkbox" class="ung-row-chk" data-id="${r.id}" style="width:15px;height:15px;cursor:pointer">
           </td>
@@ -557,39 +573,36 @@ function _ungSectionHTML(recs, title, accentColor) {
         </tr>`).join('')}</tbody>
       </table>
     </div>
+    ${pagHtml}
   </div>`;
 }
 
 function renderUngTable() {
   const container = document.getElementById('ung-all-sections');
-  const start = (ungPage-1)*PG;
-  const paged = filteredUng.slice(start, start+PG);
+  const allTp = filteredUng.filter(r => (r.loai||'thauphu') === 'thauphu');
+  const allCn = filteredUng.filter(r => r.loai === 'congnhan');
   const sumTien = sumBy(filteredUng, 'tien');
 
-  if (!paged.length) {
+  if (!allTp.length && !allCn.length) {
     container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink3);font-size:14px">Không có dữ liệu tiền ứng nào</div>`;
     document.getElementById('ung-pagination').innerHTML = ''; return;
   }
 
-  const tpRecs = paged.filter(r => (r.loai||'thauphu') === 'thauphu');
-  const cnRecs = paged.filter(r => r.loai === 'congnhan');
+  const tpPaged = allTp.slice((ungTpPage-1)*UNG_TP_PG, ungTpPage*UNG_TP_PG);
+  const cnPaged = allCn.slice((ungCnPage-1)*UNG_CN_PG, ungCnPage*UNG_CN_PG);
 
   container.innerHTML =
-    _ungSectionHTML(tpRecs, 'Thầu Phụ / Nhà Cung Cấp', 'var(--gold)') +
-    _ungSectionHTML(cnRecs, 'Công Nhân', 'var(--blue)');
+    _ungSectionHTML(tpPaged, allTp, 'Thầu Phụ / Nhà Cung Cấp', 'var(--gold)', ungTpPage, UNG_TP_PG, 'goUngTpTo') +
+    _ungSectionHTML(cnPaged, allCn, 'Công Nhân', 'var(--blue)', ungCnPage, UNG_CN_PG, 'goUngCnTo');
 
   const mono = "font-family:'IBM Plex Mono',monospace";
-  const tp2 = Math.ceil(filteredUng.length/PG);
-  let pag = `<span>${filteredUng.length} bản ghi · Tổng tiền ứng: <strong style="color:var(--blue);${mono}">${fmtS(sumTien)}</strong></span>`;
-  if (tp2>1) {
-    pag += '<div class="page-btns">';
-    for (let p=1; p<=Math.min(tp2,10); p++) pag += `<button class="page-btn ${p===ungPage?'active':''}" onclick="goUngTo(${p})">${p}</button>`;
-    pag += '</div>';
-  }
-  document.getElementById('ung-pagination').innerHTML = pag;
+  document.getElementById('ung-pagination').innerHTML =
+    `<span>${filteredUng.length} bản ghi · Tổng tiền ứng: <strong style="color:var(--blue);${mono}">${fmtS(sumTien)}</strong></span>`;
 }
 
 function goUngTo(p) { ungPage=p; renderUngTable(); }
+function goUngTpTo(p) { ungTpPage=p; renderUngTable(); }
+function goUngCnTo(p) { ungCnPage=p; renderUngTable(); }
 
 function delUngRecord(id) {
   const idx = ungRecords.findIndex(r=>String(r.id)===String(id));

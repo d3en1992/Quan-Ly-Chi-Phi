@@ -92,6 +92,9 @@ function addRow(d={}) {
       el.addEventListener('change', calcSummary);
     }
   });
+  // Auto uppercase Người TH
+  const nguoiInp = tr.querySelector('[data-f="nguoi"]');
+  if (nguoiInp) nguoiInp.addEventListener('blur', function() { if(this.value.trim()) this.value = this.value.trim().toUpperCase(); });
 
   // PHẦN 5: Enter key → nhảy xuống dòng dưới (chỉ áp dụng cho input, không phải select)
   const entryInputs = [...tr.querySelectorAll('input')];
@@ -391,6 +394,7 @@ function renderDetailRowHTML(d, num) {
       value="${d.dongia?numFmt(d.dongia):''}" placeholder="0" inputmode="decimal"></td>
     <td><input class="cell-input" data-f="ck" value="${x(ckFmt)}" placeholder="vd: 5% hoặc 50000"></td>
     <td class="tt-cell" data-f="thtien"></td>
+    <td style="padding:0"><input class="cell-input" data-f="nguoith" value="${x(d.nguoith||'')}" placeholder="—" style="min-width:90px"></td>
     <td><button class="del-btn" onclick="delDetailRow(this)">✕</button></td>
   `;
 }
@@ -435,6 +439,9 @@ function addDetailRow(d={}) {
     calcDetailRow(tr); calcDetailTotals();
   });
   tr.querySelector('[data-f="ten"]').addEventListener('input', generateDetailNd);
+  // Auto uppercase Người TH
+  const nguoiThInp = tr.querySelector('[data-f="nguoith"]');
+  if (nguoiThInp) nguoiThInp.addEventListener('blur', function() { if(this.value.trim()) this.value = this.value.trim().toUpperCase(); });
 
   // Enter key: nhảy đến cùng cột trong dòng tiếp theo; tạo dòng mới nếu ở dòng cuối
   tr.querySelectorAll('input').forEach(inp => {
@@ -521,11 +528,14 @@ function saveDetailInvoice() {
   if(!ct) { toast('Vui lòng chọn công trình!','error'); return; }
 
   const items = [];
+  let detailNguoi = '';
   document.querySelectorAll('#detail-tbody tr').forEach(tr => {
     const {ten, dv, sl, dongia, ck} = getRowData(tr);
     const thanhtien = parseInt(tr.dataset.tt||'0', 10) || 0;
+    const nguoith = (tr.querySelector('[data-f="nguoith"]')?.value||'').trim().toUpperCase();
+    if (!detailNguoi && nguoith) detailNguoi = nguoith;
     if(!ten && !dongia) return;
-    items.push({ten, dv, sl, dongia, ck, thanhtien});
+    items.push({ten, dv, sl, dongia, ck, thanhtien, nguoith});
   });
   if(!items.length) { toast('Chưa có dòng hàng hóa nào!','error'); return; }
 
@@ -534,7 +544,7 @@ function saveDetailInvoice() {
   const container = document.getElementById('inr-hd-chitiet');
   const editId = container.dataset.editId;
 
-  const inv = { ngay, congtrinh: ct, loai, nguoi: '', ncc: '', nd, tien: tong, thanhtien: tong, items, updatedAt: Date.now(), deviceId: DEVICE_ID };
+  const inv = { ngay, congtrinh: ct, loai, nguoi: detailNguoi, ncc: '', nd, tien: tong, thanhtien: tong, items, updatedAt: Date.now(), deviceId: DEVICE_ID };
 
   if(editId) {
     const idx = invoices.findIndex(i => String(i.id) === String(editId));

@@ -35,6 +35,8 @@ function dlCSV(rows,name) {
 function updateTop() {
   const total = buildInvoices().filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
   document.getElementById('top-total').textContent=fmtS(total);
+  const mobileEl = document.getElementById('top-total-mobile');
+  if (mobileEl) mobileEl.textContent = fmtS(total);
 }
 
 // ══════════════════════════════════════════════════════════════

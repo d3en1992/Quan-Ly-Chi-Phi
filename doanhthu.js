@@ -1,11 +1,21 @@
-// doanhtu.js — Doanh Thu / Hop Dong / Dashboard
+// doanhthu.js — Doanh Thu / Hop Dong / Dashboard
 // Load order: 6
 
-// Khai bao bien (dung chung voi lib.js/gsLoadAll)
-let hopDongData = load('hopdong_v1', {});
-let thuRecords  = load('thu_v1', []);
-let selectedCT  = '';  // Lọc công trình trên dashboard ('' = tất cả)
+// ─── Biến toàn cục (main.js sẽ gán lại sau dbInit) ─────────────
+let hopDongData      = load('hopdong_v1', {});
+let thuRecords       = load('thu_v1', []);
+let thauPhuContracts = load('thauphu_v1', []);
 
+// Dashboard CT filter (dùng trong page-dashboard)
+let selectedCT = '';
+
+// Pagination state cho tab Doanh Thu
+let _hdcPage  = 0;
+let _hdtpPage = 0;
+let _thuPage  = 0;
+const DT_PG   = 7;
+
+// ══════════════════════════════════════════════════════════════
 // [MODULE: DASHBOARD] — KPI · Bar chart · Pie · Top5 · By CT
 // Tìm nhanh: Ctrl+F → "MODULE: DASHBOARD"
 // ══════════════════════════════════════════════════════════════
@@ -85,7 +95,6 @@ function _dbKPI(data, yr) {
 
 // ── Bar Chart theo tháng (SVG) — luôn hiện đủ T1→T12 ─────────
 function _dbBarChart(data) {
-  // Tổng hợp theo tháng
   const byMonth = {};
   data.forEach(i => {
     const m = i.ngay?.slice(0,7);
@@ -93,13 +102,11 @@ function _dbBarChart(data) {
     byMonth[m] = (byMonth[m] || 0) + (i.thanhtien || i.tien || 0);
   });
 
-  // Luôn hiện đủ 12 tháng T1→T12
   const yr = activeYear || new Date().getFullYear();
   const months12 = Array.from({length: 12}, (_, k) =>
     `${yr}-${String(k + 1).padStart(2, '0')}`
   );
 
-  // Khi "Tất cả năm" (activeYear=0): gộp theo số tháng qua tất cả năm
   let vals;
   if (activeYear === 0) {
     const byNum = {};
@@ -148,7 +155,6 @@ function _dbBarChart(data) {
 
 // ── Pie Chart tỷ trọng (SVG) ─────────────────────────────────
 function _dbPieChart(data) {
-  // Nhóm theo loại — gộp loại nhỏ vào "Khác"
   const COLORS = ['#f0b429','#1db954','#4a90d9','#e74c3c','#9b59b6','#e67e22','#aaa'];
   const KEY_TYPES = ['Nhân Công','Vật Liệu XD','Thầu Phụ','Sắt Thép','Đổ Bê Tông'];
 
@@ -163,7 +169,6 @@ function _dbPieChart(data) {
     .sort((a,b) => b[1]-a[1])
     .map(([name, val], i) => ({ name, val, pct: val/total, color: COLORS[i % COLORS.length] }));
 
-  // Vẽ SVG pie
   const R = 70, CX = 80, CY = 80;
   let startAngle = -Math.PI / 2;
   const slices = entries.map(e => {
@@ -264,7 +269,6 @@ function _dbUngByCT() {
   }
 
   if (!selectedCT) {
-    // Chế độ 1: tổng hợp theo CT
     const byCT = {};
     filtered.forEach(r => {
       const k = r.congtrinh || '(Không rõ)';
@@ -287,7 +291,6 @@ function _dbUngByCT() {
       </div>`;
     }).join('');
   } else {
-    // Chế độ 2: chi tiết từng lần ứng của CT đã chọn
     const rows = [...filtered]
       .sort((a,b) => b.ngay.localeCompare(a.ngay))
       .map(r => `<tr style="border-bottom:1px solid var(--line)">
@@ -332,7 +335,6 @@ function _dbTBByCT() {
   }
 
   if (!selectedCT) {
-    // Chế độ 1: thống kê theo CT
     const byCT = {};
     allTB.forEach(t => {
       const ct = t.ct || '(Không rõ)';
@@ -357,7 +359,6 @@ function _dbTBByCT() {
       </div>`
     ).join('');
   } else {
-    // Chế độ 2: chi tiết thiết bị của CT đã chọn
     const filtered = allTB
       .filter(t => t.ct === selectedCT)
       .sort((a,b) => (a.ten||'').localeCompare(b.ten,'vi'));
@@ -397,7 +398,7 @@ function _dbTBByCT() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// [MODULE: DOANH THU & CÔNG NỢ] — hopDongData · thuRecords · Lãi/Lỗ
+// [MODULE: DOANH THU — Khai Báo · Thống Kê]
 // Ctrl+F → "MODULE: DOANH THU"
 // ══════════════════════════════════════════════════════════════
 
@@ -415,138 +416,358 @@ function _readMoneyInput(id) {
   return parseInt(raw) || 0;
 }
 
-// ── Populate CT selects trong tab Doanh Thu ───────────────────
+// ── Helper: kiểm tra record có thuộc năm đang chọn không ──────
+function _dtInYear(ngay) {
+  if (activeYear === 0) return true;
+  if (!ngay) return true; // record cũ không có ngày → hiển thị trong mọi năm
+  return inActiveYear(ngay);
+}
+
+// ── Helper: render HTML phân trang ────────────────────────────
+function _dtPaginationHtml(total, curPage, onClickFn) {
+  const pages = Math.ceil(total / DT_PG);
+  if (pages <= 1) return '';
+  const btns = [];
+  if (curPage > 0)
+    btns.push(`<button class="sub-nav-btn" onclick="${onClickFn}(${curPage - 1})">‹</button>`);
+  for (let i = 0; i < pages; i++) {
+    btns.push(`<button class="sub-nav-btn ${i === curPage ? 'active' : ''}" onclick="${onClickFn}(${i})">${i + 1}</button>`);
+  }
+  if (curPage < pages - 1)
+    btns.push(`<button class="sub-nav-btn" onclick="${onClickFn}(${curPage + 1})">›</button>`);
+  return btns.join('');
+}
+
+// ── Sub-tab navigation trong page-doanhthu ────────────────────
+function dtGoSub(btn, id) {
+  document.querySelectorAll('#page-doanhthu .sub-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#page-doanhthu .sub-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'dt-sub-thongke') {
+    _hdcPage = 0; _hdtpPage = 0; _thuPage = 0;
+    renderHdcTable(0);
+    renderHdtpTable(0);
+    renderThuTable(0);
+  }
+}
+
+// ── Populate datalists trong tab Doanh Thu ────────────────────
 function dtPopulateSels() {
-  const allCts = [...new Set([...cats.congTrinh,
+  const allCts = [...new Set([
+    ...cats.congTrinh,
     ...buildInvoices().map(i => i.congtrinh),
     ...thuRecords.filter(r => !r.deletedAt).map(r => r.congtrinh)
-  ].filter(Boolean))].sort();
+  ].filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi'));
 
-  ['hd-ct-sel', 'thu-ct-sel'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">-- Chọn --</option>' +
-      allCts.map(v => `<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts = allCts.map(v => `<option value="${x(v)}">`).join('');
+  ['hdc-ct-list','thu-ct-list','hdtp-ct-list'].forEach(id => {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = ctOpts;
   });
+
+  // Thầu phụ datalist
+  const allTp = [...new Set([...cats.thauPhu].filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi'));
+  const tpDl = document.getElementById('hdtp-tp-list');
+  if (tpDl) tpDl.innerHTML = allTp.map(v => `<option value="${x(v)}">`).join('');
+
+  // Người TH datalist (từ cats.nguoiTH)
+  const allNguoi = [...new Set([...cats.nguoiTH].filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi'));
+  const nguoiDl = document.getElementById('thu-nguoi-list');
+  if (nguoiDl) nguoiDl.innerHTML = allNguoi.map(v => `<option value="${x(v)}">`).join('');
+
+  // Refresh bảng THỐNG KÊ khi năm thay đổi
+  renderHdcTable(_hdcPage);
+  renderHdtpTable(_hdtpPage);
 }
 
-// ── Load giá trị hợp đồng khi chọn CT ────────────────────────
-function hdLoadCT() {
-  const ct = document.getElementById('hd-ct-sel')?.value;
-  if (!ct) return;
-  const hd = hopDongData[ct] || {};
-  const gtEl = document.getElementById('hd-giatri');
-  const psEl = document.getElementById('hd-phatsinh');
-  if (hd.giaTri) { gtEl.dataset.raw = hd.giaTri; gtEl.value = hd.giaTri.toLocaleString('vi-VN'); }
-  else { gtEl.dataset.raw = ''; gtEl.value = ''; }
-  if (hd.phatSinh) { psEl.dataset.raw = hd.phatSinh; psEl.value = hd.phatSinh.toLocaleString('vi-VN'); }
-  else { psEl.dataset.raw = ''; psEl.value = ''; }
-  renderHopDongList();
+// ── Thêm CT mới vào danh mục nếu chưa có ─────────────────────
+function _dtAddCT(name) {
+  if (!name) return;
+  if (!cats.congTrinh.includes(name)) {
+    cats.congTrinh.push(name);
+    cats.congTrinhYears = cats.congTrinhYears || {};
+    cats.congTrinhYears[name] = activeYear || new Date().getFullYear();
+    saveCats('congTrinh');
+  }
 }
 
-// ── Lưu hợp đồng ─────────────────────────────────────────────
-function saveHopDong() {
-  const ct = document.getElementById('hd-ct-sel')?.value;
-  if (!ct) { toast('Vui lòng chọn Công Trình!', 'error'); return; }
-  const giaTri   = _readMoneyInput('hd-giatri');
-  const phatSinh = _readMoneyInput('hd-phatsinh');
-  hopDongData[ct] = { giaTri, phatSinh };
+// ── Thêm thầu phụ mới vào danh mục nếu chưa có ───────────────
+function _dtAddTP(name) {
+  if (!name) return;
+  if (!cats.thauPhu.includes(name)) {
+    cats.thauPhu.push(name);
+    saveCats('thauPhu');
+  }
+}
+
+// ══ PHẦN 1: HỢP ĐỒNG CHÍNH ════════════════════════════════════
+
+// ── Cập nhật hiển thị Tổng HĐ Chính khi nhập ─────────────────
+function hdcUpdateTotal() {
+  const tong = _readMoneyInput('hdc-giatri') + _readMoneyInput('hdc-giatriphu') + _readMoneyInput('hdc-phatsinh');
+  const el = document.getElementById('hdc-tong-label');
+  if (el) el.textContent = tong ? 'Tổng: ' + fmtM(tong) : '';
+}
+
+// ── Lưu / Cập nhật Hợp Đồng Chính ────────────────────────────
+function saveHopDongChinh() {
+  const ctInput = document.getElementById('hdc-ct-input');
+  const ct = ctInput?.value.trim();
+  if (!ct) { toast('Vui lòng nhập Tên Công Trình!', 'error'); return; }
+
+  const giaTri    = _readMoneyInput('hdc-giatri');
+  const giaTriphu = _readMoneyInput('hdc-giatriphu');
+  const phatSinh  = _readMoneyInput('hdc-phatsinh');
+  const editId    = document.getElementById('hdc-edit-id')?.value || '';
+
+  _dtAddCT(ct);
+  const now = Date.now();
+
+  if (editId) {
+    const existing = hopDongData[editId] || {};
+    if (editId !== ct) {
+      // Đổi tên CT: tạo mới + xóa mềm cũ
+      hopDongData[ct] = {
+        giaTri, giaTriphu, phatSinh,
+        ngay:      existing.ngay      || today(),
+        createdAt: existing.createdAt || now,
+        updatedAt: now,
+        deletedAt: null
+      };
+      hopDongData[editId] = { ...existing, deletedAt: now, updatedAt: now };
+    } else {
+      hopDongData[editId] = { ...existing, giaTri, giaTriphu, phatSinh, updatedAt: now };
+    }
+    toast('✅ Đã cập nhật hợp đồng: ' + ct, 'success');
+  } else {
+    hopDongData[ct] = {
+      giaTri, giaTriphu, phatSinh,
+      ngay: today(), createdAt: now, updatedAt: now, deletedAt: null
+    };
+    toast('✅ Đã lưu hợp đồng: ' + ct, 'success');
+  }
+
   save('hopdong_v1', hopDongData);
-  renderHopDongList();
+  _hdcResetForm();
+  renderHdcTable(0);
   renderDashboard();
-  toast(`✅ Đã lưu hợp đồng: ${x(ct)}`, 'success');
 }
 
-// ── Render danh sách hợp đồng đã khai báo ────────────────────
-function renderHopDongList() {
-  const wrap = document.getElementById('hd-list-wrap');
-  if (!wrap) return;
-  const entries = Object.entries(hopDongData).filter(([,v]) => v.giaTri > 0);
-  if (!entries.length) { wrap.innerHTML = ''; return; }
-
-  const rows = entries.sort((a,b) => a[0].localeCompare(b[0],'vi')).map(([ct, hd]) => {
-    const tongDT = (hd.giaTri||0) + (hd.phatSinh||0);
-    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 14px;
-        border-bottom:1px solid var(--line);font-size:13px;flex-wrap:wrap">
-      <div style="flex:1;font-weight:600;color:var(--ink)">${x(ct)}</div>
-      <div style="color:var(--ink3);font-size:12px">
-        HĐ: <b style="color:var(--ink)">${fmtM(hd.giaTri||0)}</b>
-        &nbsp;+&nbsp; PS: <b style="color:var(--ink)">${fmtM(hd.phatSinh||0)}</b>
-        &nbsp;=&nbsp; <b style="color:var(--gold)">${fmtM(tongDT)}</b>
-      </div>
-      <button class="btn btn-outline btn-sm" style="color:var(--red)"
-        data-ct="${x(ct)}" onclick="delHopDong(this.dataset.ct)" title="Xóa hợp đồng này">✕</button>
-    </div>`;
-  }).join('');
-
-  wrap.innerHTML = `<div class="records-wrap" style="overflow:hidden">${rows}</div>`;
+function _hdcResetForm() {
+  ['hdc-ct-input','hdc-giatri','hdc-giatriphu','hdc-phatsinh'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    if (el.dataset) el.dataset.raw = '';
+  });
+  const editEl = document.getElementById('hdc-edit-id');
+  if (editEl) editEl.value = '';
+  const btn = document.getElementById('hdc-save-btn');
+  if (btn) btn.textContent = '💾 Lưu';
+  const tong = document.getElementById('hdc-tong-label');
+  if (tong) tong.textContent = '';
 }
 
-function delHopDong(ct) {
+// ── Sửa Hợp Đồng Chính ───────────────────────────────────────
+function editHopDongChinh(ct) {
+  const hd = hopDongData[ct];
+  if (!hd) return;
+
+  // Chuyển sang sub KHAI BÁO
+  const kbBtn = document.getElementById('dt-sub-khaibao-btn');
+  if (kbBtn) dtGoSub(kbBtn, 'dt-sub-khaibao');
+
+  const ctInput = document.getElementById('hdc-ct-input');
+  if (ctInput) ctInput.value = ct;
+
+  function _setMoney(elemId, val) {
+    const el = document.getElementById(elemId);
+    if (!el) return;
+    el.dataset.raw = val || 0;
+    el.value = val ? parseInt(val).toLocaleString('vi-VN') : '';
+  }
+  _setMoney('hdc-giatri',    hd.giaTri    || 0);
+  _setMoney('hdc-giatriphu', hd.giaTriphu || 0);
+  _setMoney('hdc-phatsinh',  hd.phatSinh  || 0);
+
+  const editEl = document.getElementById('hdc-edit-id');
+  if (editEl) editEl.value = ct;
+  const btn = document.getElementById('hdc-save-btn');
+  if (btn) btn.textContent = '✏️ Cập nhật';
+
+  hdcUpdateTotal();
+  document.getElementById('hdc-ct-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Xóa mềm Hợp Đồng Chính ───────────────────────────────────
+function delHopDongChinh(ct) {
   if (!confirm('Xóa hợp đồng của ' + ct + '?')) return;
-  delete hopDongData[ct];
+  const now = Date.now();
+  hopDongData[ct] = { ...(hopDongData[ct] || {}), deletedAt: now, updatedAt: now };
   save('hopdong_v1', hopDongData);
-  renderHopDongList();
+  renderHdcTable(_hdcPage);
   renderDashboard();
   toast('Đã xóa hợp đồng: ' + ct, 'success');
 }
 
-// ── Lưu bản ghi thu tiền ─────────────────────────────────────
-function saveThuRecord() {
-  const ct   = document.getElementById('thu-ct-sel')?.value;
-  const ngay = document.getElementById('thu-ngay')?.value;
-  const tien = _readMoneyInput('thu-tien');
-  const nd   = document.getElementById('thu-nd')?.value.trim() || '';
-  if (!ct)   { toast('Vui lòng chọn Công Trình!', 'error'); return; }
-  if (!ngay) { toast('Vui lòng chọn Ngày!', 'error'); return; }
-  if (!tien) { toast('Vui lòng nhập Số Tiền!', 'error'); return; }
-
-  thuRecords.unshift({ id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID, ngay, congtrinh: ct, tien, nd });
-  save('thu_v1', thuRecords);
-
-  // Reset form
-  document.getElementById('thu-tien').value = '';
-  document.getElementById('thu-tien').dataset.raw = '';
-  document.getElementById('thu-nd').value = '';
-
-  renderThuTable();
-  renderDashboard();
-  toast('✅ Đã ghi nhận thu ' + fmtM(tien) + ' từ ' + ct, 'success');
-}
-
-// ── Render bảng lịch sử thu ───────────────────────────────────
-function renderThuTable() {
-  const tbody = document.getElementById('thu-tbody');
-  const empty = document.getElementById('thu-empty');
-  const badge = document.getElementById('thu-count-badge');
+// ── Render bảng Hợp Đồng Chính ────────────────────────────────
+function renderHdcTable(page) {
+  page = page || 0;
+  _hdcPage = page;
+  const tbody  = document.getElementById('hdc-tbody');
+  const empty  = document.getElementById('hdc-empty');
+  const pgWrap = document.getElementById('hdc-pagination');
   if (!tbody) return;
 
-  // Lọc theo năm đang chọn (activeYear), loại bỏ soft-deleted
-  const filtered = thuRecords.filter(r => !r.deletedAt && inActiveYear(r.ngay))
-    .sort((a,b) => b.ngay.localeCompare(a.ngay));
+  const entries = Object.entries(hopDongData)
+    .filter(([, v]) => !v.deletedAt && _dtInYear(v.ngay))
+    .sort((a, b) => a[0].localeCompare(b[0], 'vi'));
 
-  if (badge) badge.textContent = filtered.length ? `(${filtered.length} đợt)` : '';
-  if (!filtered.length) {
+  if (!entries.length) {
     tbody.innerHTML = '';
     if (empty) empty.style.display = '';
+    if (pgWrap) pgWrap.innerHTML = '';
     return;
   }
   if (empty) empty.style.display = 'none';
 
-  tbody.innerHTML = filtered.map(r => `
-    <tr>
-      <td>${r.ngay}</td>
-      <td>${x(r.congtrinh)}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green)">${fmtM(r.tien)}</td>
-      <td style="color:var(--ink3)">${x(r.nd)||'—'}</td>
-      <td style="text-align:center">
-        <button class="btn btn-outline btn-sm" style="color:var(--red);padding:2px 8px"
-          onclick="delThuRecord('${r.id}')">✕</button>
+  const total = entries.length;
+  const slice = entries.slice(page * DT_PG, (page + 1) * DT_PG);
+
+  tbody.innerHTML = slice.map(([ct, hd]) => {
+    const tong = (hd.giaTri || 0) + (hd.giaTriphu || 0) + (hd.phatSinh || 0);
+    return `<tr>
+      <td style="font-weight:600;min-width:130px">${x(ct)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${hd.giaTri ? fmtS(hd.giaTri) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${hd.giaTriphu ? fmtS(hd.giaTriphu) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${hd.phatSinh ? fmtS(hd.phatSinh) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold);white-space:nowrap">${tong ? fmtS(tong) : '—'}</td>
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--blue)" title="Sửa"
+          onclick="editHopDongChinh(this.dataset.ct)" data-ct="${x(ct)}">✏️</button>
       </td>
-    </tr>`).join('');
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--red)" title="Xóa"
+          onclick="delHopDongChinh(this.dataset.ct)" data-ct="${x(ct)}">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (pgWrap) pgWrap.innerHTML = _dtPaginationHtml(total, page, 'renderHdcTable');
 }
 
+// ══ PHẦN 2: GHI NHẬN THU TIỀN ═════════════════════════════════
+
+// ── Lưu / Cập nhật bản ghi thu tiền ─────────────────────────
+function saveThuRecord() {
+  const ct    = document.getElementById('thu-ct-input')?.value.trim();
+  const ngay  = document.getElementById('thu-ngay')?.value;
+  const tien  = _readMoneyInput('thu-tien');
+  const nguoi = (document.getElementById('thu-nguoi')?.value || '').trim().toUpperCase();
+  const nd    = document.getElementById('thu-nd')?.value.trim() || '';
+  const editId = document.getElementById('thu-edit-id')?.value || '';
+
+  if (!ct)   { toast('Vui lòng nhập Công Trình!', 'error'); return; }
+  if (!ngay) { toast('Vui lòng chọn Ngày!', 'error'); return; }
+  if (!tien) { toast('Vui lòng nhập Số Tiền!', 'error'); return; }
+
+  _dtAddCT(ct);
+  const now = Date.now();
+
+  if (editId) {
+    // Cập nhật record hiện có
+    const idx = thuRecords.findIndex(r => String(r.id) === String(editId));
+    if (idx >= 0) {
+      thuRecords[idx] = { ...thuRecords[idx], ngay, congtrinh: ct, tien, nguoi, nd, updatedAt: now, deviceId: DEVICE_ID };
+    }
+    save('thu_v1', thuRecords);
+    _thuResetForm();
+    renderThuTable(_thuPage);
+    renderDashboard();
+    toast('✅ Đã cập nhật thu tiền: ' + fmtM(tien) + ' — ' + ct, 'success');
+  } else {
+    // Tạo mới
+    thuRecords.unshift({
+      id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
+      ngay, congtrinh: ct, tien, nguoi, nd
+    });
+    save('thu_v1', thuRecords);
+
+    // Reset form nhẹ: chỉ xóa tiền, người, nội dung — giữ ct và ngày
+    const tienEl = document.getElementById('thu-tien');
+    if (tienEl) { tienEl.value = ''; tienEl.dataset.raw = ''; }
+    const nguoiEl = document.getElementById('thu-nguoi');
+    if (nguoiEl) nguoiEl.value = '';
+    const ndEl = document.getElementById('thu-nd');
+    if (ndEl) ndEl.value = '';
+
+    renderThuTable(0);
+    renderDashboard();
+    toast('✅ Đã ghi nhận thu ' + fmtM(tien) + ' từ ' + ct, 'success');
+  }
+}
+
+// ── Sửa bản ghi thu tiền (tải vào form KHAI BÁO) ─────────────
+function editThuRecord(id) {
+  const r = thuRecords.find(r => String(r.id) === String(id));
+  if (!r) return;
+
+  // Chuyển sang sub KHAI BÁO
+  const kbBtn = document.getElementById('dt-sub-khaibao-btn');
+  if (kbBtn) dtGoSub(kbBtn, 'dt-sub-khaibao');
+
+  // Điền dữ liệu vào form
+  const ctEl = document.getElementById('thu-ct-input');
+  if (ctEl) ctEl.value = r.congtrinh || '';
+  const ngayEl = document.getElementById('thu-ngay');
+  if (ngayEl) ngayEl.value = r.ngay || '';
+  const nguoiEl = document.getElementById('thu-nguoi');
+  if (nguoiEl) nguoiEl.value = r.nguoi || '';
+  const ndEl = document.getElementById('thu-nd');
+  if (ndEl) ndEl.value = r.nd || '';
+
+  // Điền tiền
+  const tienEl = document.getElementById('thu-tien');
+  if (tienEl) {
+    tienEl.dataset.raw = r.tien || 0;
+    tienEl.value = r.tien ? parseInt(r.tien).toLocaleString('vi-VN') : '';
+  }
+
+  // Đặt edit id + đổi nút
+  const editEl = document.getElementById('thu-edit-id');
+  if (editEl) editEl.value = id;
+  const saveBtn = document.getElementById('thu-save-btn');
+  if (saveBtn) saveBtn.textContent = '✏️ Cập nhật';
+  const cancelBtn = document.getElementById('thu-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = '';
+
+  document.getElementById('thu-ct-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Hủy chỉnh sửa thu tiền ───────────────────────────────────
+function _thuCancelEdit() {
+  _thuResetForm();
+  toast('Đã hủy chỉnh sửa', '');
+}
+
+// ── Reset toàn bộ form thu tiền ───────────────────────────────
+function _thuResetForm() {
+  ['thu-ct-input','thu-tien','thu-nguoi','thu-nd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    if (el.dataset) el.dataset.raw = '';
+  });
+  const editEl = document.getElementById('thu-edit-id');
+  if (editEl) editEl.value = '';
+  const saveBtn = document.getElementById('thu-save-btn');
+  if (saveBtn) saveBtn.textContent = '+ Ghi nhận Thu';
+  const cancelBtn = document.getElementById('thu-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+// ── Xóa mềm bản ghi thu tiền ─────────────────────────────────
 function delThuRecord(id) {
   if (!confirm('Xóa bản ghi thu tiền này?')) return;
   const idx = thuRecords.findIndex(r => String(r.id) === String(id));
@@ -554,10 +775,211 @@ function delThuRecord(id) {
   const now = Date.now();
   thuRecords[idx] = { ...thuRecords[idx], deletedAt: now, updatedAt: now, deviceId: DEVICE_ID };
   save('thu_v1', thuRecords);
-  renderThuTable();
+  renderThuTable(_thuPage);
   renderDashboard();
   toast('Đã xóa bản ghi thu tiền', 'success');
 }
+
+// ── Render bảng lịch sử thu ───────────────────────────────────
+function renderThuTable(page) {
+  if (page === undefined) page = _thuPage;
+  _thuPage = page;
+  const tbody  = document.getElementById('thu-tbody');
+  const empty  = document.getElementById('thu-empty');
+  const badge  = document.getElementById('thu-count-badge');
+  const pgWrap = document.getElementById('thu-pagination');
+  if (!tbody) return;
+
+  const filtered = thuRecords
+    .filter(r => !r.deletedAt && inActiveYear(r.ngay))
+    .sort((a, b) => b.ngay.localeCompare(a.ngay));
+
+  if (badge) badge.textContent = filtered.length ? `(${filtered.length} đợt)` : '';
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = '';
+    if (pgWrap) pgWrap.innerHTML = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const total = filtered.length;
+  const slice = filtered.slice(page * DT_PG, (page + 1) * DT_PG);
+
+  tbody.innerHTML = slice.map(r => `
+    <tr>
+      <td style="white-space:nowrap;color:var(--ink3);font-size:12px">${r.ngay}</td>
+      <td style="font-weight:600">${x(r.congtrinh)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);white-space:nowrap">${fmtM(r.tien)}</td>
+      <td style="color:var(--ink2)">${x(r.nguoi || '—')}</td>
+      <td style="color:var(--ink3);font-size:12px">${x(r.nd || '—')}</td>
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--blue)" title="Sửa"
+          onclick="editThuRecord('${r.id}')">✏️</button>
+      </td>
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--red);padding:2px 8px" title="Xóa"
+          onclick="delThuRecord('${r.id}')">✕</button>
+      </td>
+    </tr>`).join('');
+
+  if (pgWrap) pgWrap.innerHTML = _dtPaginationHtml(total, page, 'renderThuTable');
+}
+
+// ══ PHẦN 3: HỢP ĐỒNG THẦU PHỤ ════════════════════════════════
+
+// ── Cập nhật hiển thị Tổng HĐ Thầu Phụ khi nhập ─────────────
+function hdtpUpdateTotal() {
+  const tong = _readMoneyInput('hdtp-giatri') + _readMoneyInput('hdtp-phatsinh');
+  const el = document.getElementById('hdtp-tong-label');
+  if (el) el.textContent = tong ? 'Tổng: ' + fmtM(tong) : '';
+}
+
+// ── Lưu / Cập nhật Hợp Đồng Thầu Phụ ────────────────────────
+function saveHopDongThauPhu() {
+  const ct = document.getElementById('hdtp-ct-input')?.value.trim();
+  const tp = (document.getElementById('hdtp-thauphu')?.value || '').trim().toUpperCase();
+  if (!ct) { toast('Vui lòng nhập Tên Công Trình!', 'error'); return; }
+  if (!tp) { toast('Vui lòng nhập Tên Thầu Phụ!', 'error'); return; }
+
+  const giaTri   = _readMoneyInput('hdtp-giatri');
+  const phatSinh = _readMoneyInput('hdtp-phatsinh');
+  const nd       = document.getElementById('hdtp-nd')?.value.trim() || '';
+  const editId   = document.getElementById('hdtp-edit-id')?.value || '';
+
+  _dtAddCT(ct);
+  _dtAddTP(tp);
+  const now = Date.now();
+
+  if (editId) {
+    const idx = thauPhuContracts.findIndex(r => r.id === editId);
+    if (idx >= 0) {
+      thauPhuContracts[idx] = { ...thauPhuContracts[idx], congtrinh: ct, thauphu: tp, giaTri, phatSinh, nd, updatedAt: now };
+    }
+    toast('✅ Đã cập nhật HĐ thầu phụ', 'success');
+  } else {
+    thauPhuContracts.unshift({
+      id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
+      ngay: today(), congtrinh: ct, thauphu: tp, giaTri, phatSinh, nd
+    });
+    toast('✅ Đã lưu HĐ thầu phụ: ' + tp + ' — ' + ct, 'success');
+  }
+
+  save('thauphu_v1', thauPhuContracts);
+  _hdtpResetForm();
+  renderHdtpTable(0);
+}
+
+function _hdtpResetForm() {
+  ['hdtp-ct-input','hdtp-thauphu','hdtp-giatri','hdtp-phatsinh','hdtp-nd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    if (el.dataset) el.dataset.raw = '';
+  });
+  const editEl = document.getElementById('hdtp-edit-id');
+  if (editEl) editEl.value = '';
+  const btn = document.getElementById('hdtp-save-btn');
+  if (btn) btn.textContent = '💾 Lưu';
+  const tong = document.getElementById('hdtp-tong-label');
+  if (tong) tong.textContent = '';
+}
+
+// ── Sửa Hợp Đồng Thầu Phụ ────────────────────────────────────
+function editHopDongThauPhu(id) {
+  const r = thauPhuContracts.find(r => r.id === id);
+  if (!r) return;
+
+  // Chuyển sang sub KHAI BÁO
+  const kbBtn = document.getElementById('dt-sub-khaibao-btn');
+  if (kbBtn) dtGoSub(kbBtn, 'dt-sub-khaibao');
+
+  const ctInput = document.getElementById('hdtp-ct-input');
+  if (ctInput) ctInput.value = r.congtrinh || '';
+  const tpInput = document.getElementById('hdtp-thauphu');
+  if (tpInput) tpInput.value = r.thauphu || '';
+  const ndInput = document.getElementById('hdtp-nd');
+  if (ndInput) ndInput.value = r.nd || '';
+
+  function _setMoney(elemId, val) {
+    const el = document.getElementById(elemId);
+    if (!el) return;
+    el.dataset.raw = val || 0;
+    el.value = val ? parseInt(val).toLocaleString('vi-VN') : '';
+  }
+  _setMoney('hdtp-giatri',   r.giaTri   || 0);
+  _setMoney('hdtp-phatsinh', r.phatSinh || 0);
+
+  const editEl = document.getElementById('hdtp-edit-id');
+  if (editEl) editEl.value = id;
+  const btn = document.getElementById('hdtp-save-btn');
+  if (btn) btn.textContent = '✏️ Cập nhật';
+
+  hdtpUpdateTotal();
+  document.getElementById('hdtp-ct-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Xóa mềm Hợp Đồng Thầu Phụ ────────────────────────────────
+function delHopDongThauPhu(id) {
+  if (!confirm('Xóa hợp đồng thầu phụ này?')) return;
+  const idx = thauPhuContracts.findIndex(r => r.id === id);
+  if (idx < 0) return;
+  const now = Date.now();
+  thauPhuContracts[idx] = { ...thauPhuContracts[idx], deletedAt: now, updatedAt: now };
+  save('thauphu_v1', thauPhuContracts);
+  renderHdtpTable(_hdtpPage);
+  toast('Đã xóa hợp đồng thầu phụ', 'success');
+}
+
+// ── Render bảng Hợp Đồng Thầu Phụ ────────────────────────────
+function renderHdtpTable(page) {
+  page = page || 0;
+  _hdtpPage = page;
+  const tbody  = document.getElementById('hdtp-tbody');
+  const empty  = document.getElementById('hdtp-empty');
+  const pgWrap = document.getElementById('hdtp-pagination');
+  if (!tbody) return;
+
+  const filtered = thauPhuContracts
+    .filter(r => !r.deletedAt && _dtInYear(r.ngay))
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = '';
+    if (pgWrap) pgWrap.innerHTML = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const total = filtered.length;
+  const slice = filtered.slice(page * DT_PG, (page + 1) * DT_PG);
+
+  tbody.innerHTML = slice.map(r => {
+    const tong = (r.giaTri || 0) + (r.phatSinh || 0);
+    return `<tr>
+      <td style="font-weight:600;min-width:120px">${x(r.congtrinh)}</td>
+      <td style="min-width:110px">${x(r.thauphu)}</td>
+      <td style="color:var(--ink3);font-size:12px;min-width:90px">${x(r.nd || '—')}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${r.giaTri ? fmtS(r.giaTri) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap">${r.phatSinh ? fmtS(r.phatSinh) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold);white-space:nowrap">${tong ? fmtS(tong) : '—'}</td>
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--blue)" title="Sửa"
+          onclick="editHopDongThauPhu('${r.id}')">✏️</button>
+      </td>
+      <td style="text-align:center;padding:4px 6px">
+        <button class="btn btn-outline btn-sm" style="color:var(--red)" title="Xóa"
+          onclick="delHopDongThauPhu('${r.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (pgWrap) pgWrap.innerHTML = _dtPaginationHtml(total, page, 'renderHdtpTable');
+}
+
+// ══ BẢNG LÃI/LỖ (Dashboard) ═══════════════════════════════════
 
 // ── Render bảng Lãi/Lỗ trong Dashboard ───────────────────────
 function renderLaiLo() {
@@ -571,44 +993,60 @@ function renderLaiLo() {
     tongChi[ct] = (tongChi[ct] || 0) + (i.thanhtien || i.tien || 0);
   });
 
-  // Tổng đã thu theo CT trong năm đang chọn (loại bỏ soft-deleted)
+  // Tổng đã thu theo CT trong năm đang chọn
   const daThu = {};
   thuRecords.filter(r => !r.deletedAt && inActiveYear(r.ngay)).forEach(r => {
     daThu[r.congtrinh] = (daThu[r.congtrinh] || 0) + (r.tien || 0);
   });
 
-  // Gộp tất cả CT xuất hiện
+  // Hợp đồng theo CT (từ hopDongData — bỏ qua soft-deleted)
+  const hdByCT = {};
+  Object.entries(hopDongData).filter(([, v]) => !v.deletedAt).forEach(([ct, hd]) => {
+    hdByCT[ct] = {
+      giaTri:    hd.giaTri    || 0,
+      giaTriphu: hd.giaTriphu || 0,
+      phatSinh:  hd.phatSinh  || 0,
+    };
+  });
+
+  // Gộp tất cả CT
   const allCts = [...new Set([
     ...Object.keys(tongChi),
-    ...Object.keys(hopDongData)
-  ])].filter(Boolean).sort((a,b) => a.localeCompare(b,'vi'));
+    ...Object.keys(hdByCT)
+  ])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'vi'));
 
   if (!allCts.length) {
     wrap.innerHTML = '<div class="db-empty">Chưa có dữ liệu</div>';
     return;
   }
 
-  let tongHD = 0, tongPS = 0, tongDT = 0, tongChi_ = 0, tongThu = 0;
+  let tongHD = 0, tongHDPhu = 0, tongPS = 0, tongDT = 0, tongChi_ = 0, tongThu = 0;
 
   const rows = allCts.map(ct => {
-    const hd       = hopDongData[ct] || {};
-    const giaTri   = hd.giaTri   || 0;
-    const phatSinh = hd.phatSinh || 0;
-    const tongDTct = giaTri + phatSinh;
-    const chi      = tongChi[ct]  || 0;
-    const thu      = daThu[ct]    || 0;
+    const hd       = hdByCT[ct] || {};
+    const giaTri   = hd.giaTri    || 0;
+    const giaTriphu= hd.giaTriphu || 0;
+    const phatSinh = hd.phatSinh  || 0;
+    const tongDTct = giaTri + giaTriphu + phatSinh;
+    const chi      = tongChi[ct] || 0;
+    const thu      = daThu[ct]   || 0;
     const conPhaiThu = tongDTct - thu;
     const laiLo    = tongDTct - chi;
     const llClass  = laiLo > 0 ? 'll-pos' : laiLo < 0 ? 'll-neg' : 'll-zero';
     const llPrefix = laiLo > 0 ? '+' : '';
 
-    tongHD  += giaTri; tongPS  += phatSinh;
-    tongDT  += tongDTct; tongChi_ += chi; tongThu += thu;
+    tongHD    += giaTri;
+    tongHDPhu += giaTriphu;
+    tongPS    += phatSinh;
+    tongDT    += tongDTct;
+    tongChi_  += chi;
+    tongThu   += thu;
 
     return `<tr>
       <td>${x(ct)}</td>
-      <td>${giaTri ? fmtS(giaTri) : '<span style="color:var(--ink3)">—</span>'}</td>
-      <td>${phatSinh ? fmtS(phatSinh) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td>${giaTri    ? fmtS(giaTri)    : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td>${giaTriphu ? fmtS(giaTriphu) : '<span style="color:var(--ink3)">—</span>'}</td>
+      <td>${phatSinh  ? fmtS(phatSinh)  : '<span style="color:var(--ink3)">—</span>'}</td>
       <td style="font-weight:600">${tongDTct ? fmtS(tongDTct) : '—'}</td>
       <td style="color:var(--red)">${fmtS(chi)}</td>
       <td style="color:var(--green)">${thu ? fmtS(thu) : '—'}</td>
@@ -617,7 +1055,7 @@ function renderLaiLo() {
     </tr>`;
   }).join('');
 
-  const tongLaiLo = tongDT - tongChi_;
+  const tongLaiLo  = tongDT - tongChi_;
   const tongLLClass = tongLaiLo > 0 ? 'll-pos' : tongLaiLo < 0 ? 'll-neg' : 'll-zero';
 
   wrap.innerHTML = `
@@ -626,7 +1064,8 @@ function renderLaiLo() {
         <thead>
           <tr>
             <th style="text-align:left;min-width:140px">Công Trình</th>
-            <th>Hợp Đồng</th>
+            <th>HĐ Chính</th>
+            <th>HĐ Phụ</th>
             <th>Phát Sinh</th>
             <th>Tổng DT</th>
             <th>Tổng Chi</th>
@@ -640,12 +1079,13 @@ function renderLaiLo() {
           <tr>
             <td style="text-align:left">TỔNG CỘNG</td>
             <td>${fmtS(tongHD)}</td>
+            <td>${fmtS(tongHDPhu)}</td>
             <td>${fmtS(tongPS)}</td>
             <td style="font-weight:700">${fmtS(tongDT)}</td>
             <td style="color:var(--red);font-weight:700">${fmtS(tongChi_)}</td>
             <td style="color:var(--green);font-weight:700">${fmtS(tongThu)}</td>
             <td>${fmtS(tongDT - tongThu)}</td>
-            <td class="${tongLLClass}">${tongDT ? (tongLaiLo>=0?'+':'') + fmtS(tongLaiLo) : '—'}</td>
+            <td class="${tongLLClass}">${tongDT ? (tongLaiLo >= 0 ? '+' : '') + fmtS(tongLaiLo) : '—'}</td>
           </tr>
         </tfoot>
       </table>
@@ -654,13 +1094,32 @@ function renderLaiLo() {
 
 // ── Init tab Doanh Thu khi mở ─────────────────────────────────
 function initDoanhThu() {
+  // Reload dữ liệu thầu phụ mới nhất
+  thauPhuContracts = load('thauphu_v1', []);
+
   dtPopulateSels();
-  renderHopDongList();
-  renderThuTable();
-  // Set ngày mặc định = hôm nay
+
+  // Set ngày mặc định = hôm nay nếu chưa có
   const ngayEl = document.getElementById('thu-ngay');
   if (ngayEl && !ngayEl.value) ngayEl.value = today();
+
+  // Đảm bảo KHAI BÁO là sub-tab active mặc định
+  const kbBtn = document.getElementById('dt-sub-khaibao-btn');
+  const kbPage = document.getElementById('dt-sub-khaibao');
+  const tkBtn  = document.getElementById('dt-sub-thongke-btn');
+  const tkPage = document.getElementById('dt-sub-thongke');
+  if (kbBtn && kbPage && tkBtn && tkPage) {
+    kbPage.classList.add('active');    tkPage.classList.remove('active');
+    kbBtn.classList.add('active');     tkBtn.classList.remove('active');
+  }
+
+  // Reset edit state
+  _hdcResetForm();
+  _hdtpResetForm();
 }
 
-
-// ══════════════════════════════════════════════════════════════
+// ── Backward compat: hàm cũ được giữ lại để tránh crash ──────
+function saveHopDong()        { saveHopDongChinh(); }
+function hdLoadCT()           { /* deprecated */ }
+function renderHopDongList()  { renderHdcTable(_hdcPage); }
+function delHopDong(ct)       { delHopDongChinh(ct); }
