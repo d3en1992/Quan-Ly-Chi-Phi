@@ -568,49 +568,64 @@ function renderBackupList() {
 function fbReady() { return FB_CONFIG.apiKey && FB_CONFIG.projectId; }
 
 // ══ NÉN / GIẢI NÉN ═══════════════════════════════════════
-// inv: id→i ngay→d congtrinh→c loai→l nguoi→n ncc→s nd→t tien→p thanhtien→q sl→k ccKey→x _ts→m
+// inv: id→i ngay→d congtrinh→c loai→l nguoi→n ncc→s nd→t tien→p thanhtien→q sl→k ccKey→x
+//      updatedAt→m createdAt→ca deletedAt→da deviceId→dv
 function compressInv(arr) {
   return arr.map(o=>{const r={};
     if(o.id!==undefined)r.i=o.id; if(o.ngay)r.d=o.ngay; if(o.congtrinh)r.c=o.congtrinh;
     if(o.loai)r.l=o.loai; if(o.nguoi)r.n=o.nguoi; if(o.ncc)r.s=o.ncc; if(o.nd)r.t=o.nd;
     if(o.tien)r.p=o.tien; if(o.thanhtien&&o.thanhtien!==o.tien)r.q=o.thanhtien;
-    if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey; if(o._ts)r.m=o._ts; return r;});
+    if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey;
+    // Metadata: dùng updatedAt, fallback sang _ts cho record cũ
+    r.m=(o.updatedAt||o._ts)||undefined;
+    if(o.createdAt)r.ca=o.createdAt; if(o.deletedAt)r.da=o.deletedAt;
+    if(o.deviceId)r.dv=o.deviceId; return r;});
 }
 function expandInv(arr) {
   return (arr||[]).map(o=>({id:o.i,ngay:o.d,congtrinh:o.c,loai:o.l,nguoi:o.n||'',ncc:o.s||'',
-    nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined}));
+    nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,
+    updatedAt:o.m||undefined,_ts:o.m||undefined,
+    createdAt:o.ca||undefined,deletedAt:o.da||null,deviceId:o.dv||undefined}));
 }
 function compressCC(arr) {
   return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,a:w.updatedAt,
+    ca:w.createdAt,da:w.deletedAt,dv:w.deviceId,
     w:w.workers.map(wk=>{const r={n:wk.name,d:wk.d,l:wk.luong};
       if(wk.phucap)r.p=wk.phucap; if(wk.hdmuale)r.h=wk.hdmuale; if(wk.nd)r.t=wk.nd;
       if(wk.tru)r.u=wk.tru; return r;})}));
 }
 function expandCC(arr) {
   return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,updatedAt:w.a,
+    createdAt:w.ca||undefined,deletedAt:w.da||null,deviceId:w.dv||undefined,
     workers:(w.w||[]).map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||'',tru:wk.u||0}))}));
 }
 function compressUng(arr) {
   return (arr||[]).map(o=>{const r={i:o.id,a:o.updatedAt,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''};
-    if(o.loai&&o.loai!=='thauphu')r.k=o.loai; return r;});
+    if(o.loai&&o.loai!=='thauphu')r.k=o.loai;
+    if(o.createdAt)r.ca=o.createdAt; if(o.deletedAt)r.da=o.deletedAt;
+    if(o.deviceId)r.dv=o.deviceId; return r;});
 }
 function expandUng(arr) {
-  return (arr||[]).map(o=>({id:o.i,updatedAt:o.a,ngay:o.d,tp:o.t,loai:o.k||'thauphu',congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
+  return (arr||[]).map(o=>({id:o.i,updatedAt:o.a,ngay:o.d,tp:o.t,loai:o.k||'thauphu',congtrinh:o.c,tien:o.p||0,nd:o.n||'',
+    createdAt:o.ca||undefined,deletedAt:o.da||null,deviceId:o.dv||undefined}));
 }
 function compressTb(arr) {
-  return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
+  return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||'',
+    m:o.updatedAt,ca:o.createdAt,da:o.deletedAt,dv:o.deviceId}));
 }
 function expandTb(arr) {
-  return (arr||[]).map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||''}));
+  return (arr||[]).map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||'',
+    updatedAt:o.m||undefined,createdAt:o.ca||undefined,deletedAt:o.da||null,deviceId:o.dv||undefined}));
 }
 
 function load(k, def) {
   try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
 }
 function save(k, v) {
-  clearTimeout(save._t);
   localStorage.setItem(k, JSON.stringify(v));
-  save._t = setTimeout(fbPushAll, 2500);
+  // Delegate to sync.js processQueue nếu đã load, fallback sang fbPushAll
+  if (typeof processQueue === 'function') processQueue();
+  else { clearTimeout(save._t); save._t = setTimeout(fbPushAll, 2500); }
   // Async write to IndexedDB (background, non-blocking)
   _dbSave(k, v).catch(e => console.warn('[IDB] save lỗi:', k, e));
 }
@@ -684,6 +699,8 @@ const LAST_SYNC_KEY = 'lastSyncAt';
 
 let _fbPushing = false;
 function fbPushAll() {
+  // Delegate sang sync.js nếu đã load (pushChanges xử lý all-years + pull-merge-push)
+  if (typeof pushChanges === 'function') { pushChanges(); return; }
   if (!fbReady()) return;
   if (_fbPushing) { save._t = setTimeout(fbPushAll, 3000); return; }
 
@@ -741,6 +758,12 @@ function jbPushAll() { fbPushAll(); }
 
 // ══ TẢI TỪ CLOUD ══════════════════════════════════════════
 function gsLoadAll(callback) {
+  // Delegate sang sync.js pullChanges nếu đã load
+  if (typeof pullChanges === 'function') {
+    const yr = activeYear || new Date().getFullYear();
+    pullChanges(yr, d => callback(d ? d : null));
+    return;
+  }
   if (!fbReady()) { callback(null); return; }
   const yr = activeYear || new Date().getFullYear();
   const ys = String(yr);

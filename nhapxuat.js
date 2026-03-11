@@ -92,12 +92,11 @@ function _processImportWorkbook(wb, filename) {
         const tien = num(r[4]);
         if(!ngay || !ct || !loai || !tien) continue;
         result.inv.push({
-          id: Date.now() + Math.random(),
+          id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID,
           ngay, congtrinh:ct, loai, nd:str(r[3]),
           tien, sl: num(r[5])||undefined,
           thanhtien: tien * (num(r[5])||1),
           nguoi:str(r[6]), ncc:str(r[7]), sohd:str(r[8]),
-          _ts: Date.now()
         });
       }
       log.push(`✅ Hóa Đơn: ${result.inv.length} hàng`);
@@ -121,7 +120,7 @@ function _processImportWorkbook(wb, filename) {
         const tp   = str(r[2]);
         const tien = num(r[3]);
         if(!ngay || !ct || !tp || !tien) continue;
-        result.ung.push({ id:Date.now()+Math.random(), ngay, congtrinh:ct, tp, tien, nd:str(r[4]), _ts:Date.now() });
+        result.ung.push({ id:uuid(), createdAt:Date.now(), updatedAt:Date.now(), deletedAt:null, deviceId:DEVICE_ID, ngay, congtrinh:ct, tp, tien, nd:str(r[4]) });
       }
       log.push(`✅ Tiền Ứng: ${result.ung.length} hàng`);
     }
@@ -157,7 +156,7 @@ function _processImportWorkbook(wb, filename) {
               String(sat.getMonth()+1).padStart(2,'0') + '-' +
               String(sat.getDate()).padStart(2,'0');
           } catch(e) { toDate = fromDate; }
-          weekMap[key] = { id:Date.now()+Math.random(), fromDate, toDate, ct, workers:[] };
+          weekMap[key] = { id:uuid(), createdAt:Date.now(), updatedAt:Date.now(), deletedAt:null, deviceId:DEVICE_ID, fromDate, toDate, ct, workers:[] };
         }
         const d = [num(r[6]),num(r[7]),num(r[8]),num(r[9]),num(r[10]),num(r[11]),num(r[12])];
         weekMap[key].workers.push({ name, luong, phucap:num(r[4]), hdmuale:num(r[5]), d, nd:str(r[13]) });
@@ -183,8 +182,8 @@ function _processImportWorkbook(wb, filename) {
         const r = rows[i];
         const ct = str(r[0]); const ten = str(r[1]);
         if(!ct || !ten) continue;
-        result.tb.push({ id:Date.now()+Math.random(), ct, ten,
-          soluong: num(r[2])||1, tinhtrang: str(r[3])||'Đang hoạt động',
+        result.tb.push({ id:uuid(), createdAt:Date.now(), updatedAt:Date.now(), deletedAt:null, deviceId:DEVICE_ID,
+          ct, ten, soluong: num(r[2])||1, tinhtrang: str(r[3])||'Đang hoạt động',
           nguoi:str(r[4]), ngay:parseDate(r[5])||'', ghichu:str(r[6]) });
       }
       log.push(`✅ Thiết Bị: ${result.tb.length} hàng`);

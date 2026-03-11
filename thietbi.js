@@ -207,7 +207,7 @@ function tbSave() {
       if (row.nguoi) exist.nguoi = row.nguoi;
       if (row.ghichu) exist.ghichu = row.ghichu;
     } else {
-      tbData.push({ id: Date.now()+'_'+Math.random().toString(36).slice(2), ct, ...row, ngay });
+      tbData.push({ id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID, ct, ...row, ngay });
     }
   });
 
@@ -429,7 +429,7 @@ function tbSaveEdit(id) {
     destExist.ngay = ngay;
   } else {
     tbData.push({
-      id: Date.now()+'_'+Math.random().toString(36).slice(2),
+      id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID,
       ct: newCT, ten: r.ten, soluong: newSL, tinhtrang: newTT,
       nguoi: newNguoi, ghichu: newGhichu, ngay
     });
@@ -443,7 +443,7 @@ function tbSaveEdit(id) {
       khoExist.ngay = ngay;
     } else {
       tbData.push({
-        id: Date.now()+'_'+Math.random().toString(36).slice(2),
+        id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID,
         ct: TB_KHO_TONG, ten: r.ten, soluong: remaining,
         tinhtrang: 'Đang hoạt động', nguoi: '', ghichu: '', ngay
       });

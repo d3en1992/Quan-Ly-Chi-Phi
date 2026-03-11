@@ -421,7 +421,11 @@ function saveCCWeek(){
   // Save CC data — preserve existing id to keep Firebase sync stable
   const _existingCC=ccData.find(w=>w.fromDate===fromDate&&w.ct===ct);
   ccData=ccData.filter(w=>!(w.fromDate===fromDate&&w.ct===ct));
-  ccData.unshift({id:_existingCC?.id||Date.now(), updatedAt:Date.now(), fromDate, toDate, ct, workers});
+  ccData.unshift({
+    id: _existingCC?.id || uuid(), createdAt: _existingCC?.createdAt || Date.now(),
+    updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID,
+    fromDate, toDate, ct, workers,
+  });
   save('cc_v2',ccData);
 
   // ── Tự động thêm tên mới + vai trò vào danh mục Công Nhân ───────

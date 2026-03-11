@@ -501,7 +501,7 @@ function saveThuRecord() {
   if (!ngay) { toast('Vui lòng chọn Ngày!', 'error'); return; }
   if (!tien) { toast('Vui lòng nhập Số Tiền!', 'error'); return; }
 
-  thuRecords.unshift({ id: Date.now() + Math.random(), ngay, congtrinh: ct, tien, nd });
+  thuRecords.unshift({ id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID, ngay, congtrinh: ct, tien, nd });
   save('thu_v1', thuRecords);
 
   // Reset form

@@ -307,9 +307,9 @@ function _doSaveRows(rows) {
     };
     if(editId) {
       const idx = invoices.findIndex(i => String(i.id) === String(editId));
-      if(idx >= 0) { invoices[idx] = {...invoices[idx], ...p, _ts: Date.now()}; updated++; }
+      if(idx >= 0) { invoices[idx] = {...invoices[idx], ...p, updatedAt: Date.now(), deviceId: DEVICE_ID}; updated++; }
     } else {
-      invoices.unshift({id: Date.now() + Math.random(), _ts: Date.now(), ...p});
+      invoices.unshift({id: uuid(), createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, deviceId: DEVICE_ID, ...p});
       saved++;
     }
     tr.style.background = '#f0fff4';
@@ -534,7 +534,7 @@ function saveDetailInvoice() {
   const container = document.getElementById('inr-hd-chitiet');
   const editId = container.dataset.editId;
 
-  const inv = { ngay, congtrinh: ct, loai, nguoi: '', ncc: '', nd, tien: tong, thanhtien: tong, items, _ts: Date.now() };
+  const inv = { ngay, congtrinh: ct, loai, nguoi: '', ncc: '', nd, tien: tong, thanhtien: tong, items, updatedAt: Date.now(), deviceId: DEVICE_ID };
 
   if(editId) {
     const idx = invoices.findIndex(i => String(i.id) === String(editId));
@@ -542,13 +542,13 @@ function saveDetailInvoice() {
       invoices[idx] = {...invoices[idx], ...inv};
       toast('✅ Đã cập nhật hóa đơn chi tiết!','success');
     } else {
-      inv.id = Date.now() + Math.random();
+      inv.id = uuid(); inv.createdAt = Date.now(); inv.deletedAt = null;
       invoices.unshift(inv);
       toast('✅ Đã lưu hóa đơn chi tiết!','success');
     }
     container.dataset.editId = '';
   } else {
-    inv.id = Date.now() + Math.random();
+    inv.id = uuid(); inv.createdAt = Date.now(); inv.deletedAt = null;
     invoices.unshift(inv);
     toast('✅ Đã lưu hóa đơn chi tiết!','success');
   }
@@ -816,7 +816,7 @@ function saveEditInvoice(id) {
   const idx=invoices.findIndex(i=>String(i.id)===String(id));
   if(idx<0) return;
   const tien=parseInt(document.getElementById('ei-tien').value)||0;
-  invoices[idx]={...invoices[idx],ngay:document.getElementById('ei-ngay').value,loai:document.getElementById('ei-loai').value,congtrinh:document.getElementById('ei-ct').value,nguoi:document.getElementById('ei-nguoi').value.trim(),nd:document.getElementById('ei-nd').value.trim(),tien,thanhtien:tien,_ts:Date.now()};
+  invoices[idx]={...invoices[idx],ngay:document.getElementById('ei-ngay').value,loai:document.getElementById('ei-loai').value,congtrinh:document.getElementById('ei-ct').value,nguoi:document.getElementById('ei-nguoi').value.trim(),nd:document.getElementById('ei-nd').value.trim(),tien,thanhtien:tien,updatedAt:Date.now(),deviceId:DEVICE_ID};
   save('inv_v3',invoices);
   document.getElementById('edit-inv-overlay').remove();
   buildFilters(); filterAndRender(); updateTop();
@@ -843,7 +843,7 @@ function trashRestore(id) {
   delete inv._deletedAt;
   invoices.unshift(inv);
   trash.splice(idx,1);
-  inv._ts = Date.now(); // đánh dấu vừa khôi phục
+  inv.updatedAt = Date.now(); inv.deviceId = DEVICE_ID; // đánh dấu vừa khôi phục
   save('inv_v3',invoices);
   localStorage.setItem('trash_v1',JSON.stringify(trash));
   updateTop(); buildFilters(); filterAndRender(); renderTrash();
