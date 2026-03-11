@@ -253,6 +253,7 @@ function _dbUngByCT() {
 
   const filtered = ungRecords.filter(r =>
     !r.cancelled &&
+    !r.deletedAt &&
     inActiveYear(r.ngay) &&
     (!selectedCT || r.congtrinh === selectedCT)
   );
@@ -418,7 +419,7 @@ function _readMoneyInput(id) {
 function dtPopulateSels() {
   const allCts = [...new Set([...cats.congTrinh,
     ...buildInvoices().map(i => i.congtrinh),
-    ...thuRecords.map(r => r.congtrinh)
+    ...thuRecords.filter(r => !r.deletedAt).map(r => r.congtrinh)
   ].filter(Boolean))].sort();
 
   ['hd-ct-sel', 'thu-ct-sel'].forEach(id => {
@@ -570,9 +571,9 @@ function renderLaiLo() {
     tongChi[ct] = (tongChi[ct] || 0) + (i.thanhtien || i.tien || 0);
   });
 
-  // Tổng đã thu theo CT trong năm đang chọn
+  // Tổng đã thu theo CT trong năm đang chọn (loại bỏ soft-deleted)
   const daThu = {};
-  thuRecords.filter(r => inActiveYear(r.ngay)).forEach(r => {
+  thuRecords.filter(r => !r.deletedAt && inActiveYear(r.ngay)).forEach(r => {
     daThu[r.congtrinh] = (daThu[r.congtrinh] || 0) + (r.tien || 0);
   });
 

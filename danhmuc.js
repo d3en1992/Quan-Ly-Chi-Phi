@@ -491,9 +491,10 @@ function saveAllUngRows() {
 //  TIỀN ỨNG - ALL PAGE
 // ══════════════════════════════
 function buildUngFilters() {
-  const tps    = [...new Set(ungRecords.map(i=>i.tp))].filter(Boolean).sort();
-  const cts    = [...new Set(ungRecords.map(i=>i.congtrinh))].filter(Boolean).sort();
-  const months = [...new Set(ungRecords.map(i=>i.ngay.slice(0,7)))].filter(Boolean).sort().reverse();
+  const active = ungRecords.filter(r => !r.deletedAt && !r.cancelled);
+  const tps    = [...new Set(active.map(i=>i.tp))].filter(Boolean).sort();
+  const cts    = [...new Set(active.map(i=>i.congtrinh))].filter(Boolean).sort();
+  const months = [...new Set(active.map(i=>i.ngay.slice(0,7)))].filter(Boolean).sort().reverse();
 
   const tpSel=document.getElementById('uf-tp'); const tv=tpSel.value;
   tpSel.innerHTML='<option value="">Tất cả TP/NCC</option>'+tps.map(v=>`<option ${v===tv?'selected':''} value="${x(v)}">${x(v)}</option>`).join('');
@@ -511,6 +512,7 @@ function filterAndRenderUng() {
   const fMonth=document.getElementById('uf-month').value;
   filteredUng = ungRecords.filter(r => {
     if(r.cancelled) return false;
+    if(r.deletedAt) return false;
     if(!inActiveYear(r.ngay)) return false;
     if(fTp && r.tp!==fTp) return false;
     if(fCt && r.congtrinh!==fCt) return false;

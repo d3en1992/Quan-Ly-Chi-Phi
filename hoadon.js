@@ -906,7 +906,7 @@ function renderTodayInvoices() {
   const footer = document.getElementById('today-inv-footer');
   if(!tbody) return;
 
-  const todayInvs = invoices.filter(i => i.ngay === date && !i.ccKey);
+  const todayInvs = invoices.filter(i => i.ngay === date && !i.ccKey && !i.deletedAt);
   if(!todayInvs.length) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Chưa có hóa đơn nào vào ngày ${date}</td></tr>`;
     if(footer) footer.innerHTML = '';

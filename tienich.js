@@ -43,8 +43,10 @@ function updateTop() {
 // Tất cả module hiển thị chi phí phải dùng hàm này thay vì đọc invoices trực tiếp
 // ══════════════════════════════════════════════════════════════
 function buildInvoices() {
-  // 1. Manual invoices — chỉ những HĐ nhập tay, không có ccKey
-  const manual = invoices.map(inv => ({ ...inv, source: 'manual' }));
+  // 1. Manual invoices — chỉ những HĐ nhập tay, không có ccKey, chưa bị xóa mềm
+  const manual = invoices
+    .filter(inv => !inv.deletedAt)
+    .map(inv => ({ ...inv, source: 'manual' }));
 
   // 2. CC-derived invoices — tính động từ ccData, không lưu vào inv_v3
   const ccInvs = [];
@@ -52,7 +54,8 @@ function buildInvoices() {
     const [,m,d] = ds.split('-').map(Number);
     return (d<10?'0':'')+d+'/'+(m<10?'0':'')+m;
   };
-  const _ccData = (typeof ccData !== 'undefined') ? ccData : [];
+  // Chỉ dùng các tuần chấm công chưa bị xóa mềm
+  const _ccData = (typeof ccData !== 'undefined') ? ccData.filter(w => !w.deletedAt) : [];
   _ccData.forEach(week => {
     const { fromDate, ct, workers } = week;
     if (!fromDate || !ct || !workers || !workers.length) return;
@@ -222,14 +225,14 @@ function _entityInYear(name, type) {
   if (activeYear === 0) return true; // "Tất cả năm" → hiện hết
   if (!name) return false;
   if (type === 'ct') {
-    // CT xuất hiện nếu có HĐ, CC, hoặc tiền ứng trong năm
-    return invoices.some(i  => inActiveYear(i.ngay)      && i.congtrinh === name)
-        || ccData.some(w    => inActiveYear(w.fromDate)   && w.ct        === name)
-        || ungRecords.some(r => inActiveYear(r.ngay)      && r.congtrinh === name);
+    // CT xuất hiện nếu có HĐ, CC, hoặc tiền ứng trong năm (chưa bị xóa)
+    return invoices.some(i  => !i.deletedAt  && inActiveYear(i.ngay)    && i.congtrinh === name)
+        || ccData.some(w    => !w.deletedAt  && inActiveYear(w.fromDate) && w.ct        === name)
+        || ungRecords.some(r => !r.deletedAt && inActiveYear(r.ngay)     && r.congtrinh === name);
   }
   if (type === 'cn') {
-    // Công nhân xuất hiện nếu có tuần chấm công trong năm
-    return ccData.some(w => inActiveYear(w.fromDate)
+    // Công nhân xuất hiện nếu có tuần chấm công trong năm (chưa bị xóa)
+    return ccData.some(w => !w.deletedAt && inActiveYear(w.fromDate)
         && (w.workers || []).some(wk => wk.name === name));
   }
   if (type === 'tb') {
