@@ -712,9 +712,15 @@ function delInvoice(id) {
     return;
   }
   if(!confirm('Xóa hóa đơn này? (Có thể khôi phục từ Thùng Rác)')) return;
-  trashAdd({...inv});
-  invoices=invoices.filter(i=>String(i.id)!==String(id));
-  save('inv_v3',invoices); updateTop(); buildFilters(); filterAndRender(); renderTrash();
+  // Soft delete: giữ record trong invoices với deletedAt (tránh resurrection khi sync)
+  const now = Date.now();
+  const idx = invoices.findIndex(i => String(i.id) === String(id));
+  if (idx >= 0) {
+    invoices[idx] = { ...invoices[idx], deletedAt: now, updatedAt: now, deviceId: DEVICE_ID };
+  }
+  save('inv_v3', invoices);
+  trashAdd({...inv}); // giữ trong trash để UI "Thùng Rác" vẫn hoạt động
+  updateTop(); buildFilters(); filterAndRender(); renderTrash();
   toast('Đã xóa (có thể khôi phục trong Thùng Rác)');
 }
 function editCCInvoice(ccKeyOrId) {
@@ -839,15 +845,25 @@ function trashAdd(inv) {
 function trashRestore(id) {
   const idx=trash.findIndex(i=>String(i.id)===String(id));
   if(idx<0) return;
-  const inv={...trash[idx]};
-  delete inv._deletedAt;
-  invoices.unshift(inv);
-  trash.splice(idx,1);
-  inv.updatedAt = Date.now(); inv.deviceId = DEVICE_ID; // đánh dấu vừa khôi phục
-  save('inv_v3',invoices);
-  localStorage.setItem('trash_v1',JSON.stringify(trash));
+  const now = Date.now();
+  // Xóa deletedAt trên record đang có trong invoices (soft-delete tombstone)
+  const invIdx = invoices.findIndex(i => String(i.id) === String(id));
+  if (invIdx >= 0) {
+    invoices[invIdx] = { ...invoices[invIdx], deletedAt: null, updatedAt: now, deviceId: DEVICE_ID };
+  } else {
+    // Fallback: record chưa có trong invoices (import cũ) — thêm mới
+    const inv = { ...trash[idx] };
+    delete inv._deletedAt;
+    inv.deletedAt = null;
+    inv.updatedAt = now;
+    inv.deviceId = DEVICE_ID;
+    invoices.unshift(inv);
+  }
+  trash.splice(idx, 1);
+  save('inv_v3', invoices);
+  localStorage.setItem('trash_v1', JSON.stringify(trash));
   updateTop(); buildFilters(); filterAndRender(); renderTrash();
-  toast('✅ Đã khôi phục hóa đơn!','success');
+  toast('✅ Đã khôi phục hóa đơn!', 'success');
 }
 
 function trashDeletePermanent(id) {

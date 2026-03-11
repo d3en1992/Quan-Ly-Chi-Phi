@@ -505,7 +505,7 @@ function onCCCtSelChange(){
 
 // ─── history (per week) ───────────────────────────────────────────
 function buildCCHistFilters(){
-  const yearCC=ccData.filter(w=>inActiveYear(w.fromDate));
+  const yearCC=ccData.filter(w=>!w.deletedAt&&inActiveYear(w.fromDate));
   const allCts=[...new Set(yearCC.map(w=>w.ct).filter(Boolean))].sort();
   // weeks list — chỉ năm đang chọn
   const allWeeks=[...new Set(yearCC.map(w=>w.fromDate))].sort().reverse();
@@ -535,6 +535,7 @@ function renderCCHistory(){
 
   const map={};
   ccData.forEach(w=>{
+    if(w.deletedAt) return;              // bỏ qua tuần đã xóa mềm
     if(!inActiveYear(w.fromDate)) return;  // lọc năm
     if(fCt&&w.ct!==fCt) return;
     if(fWk&&w.fromDate!==fWk) return;
@@ -637,6 +638,7 @@ function renderCCTLT(){
   // Group by name only khi "tất cả tuần", hoặc (tuần+name) khi lọc tuần cụ thể
   const map={};
   ccData.forEach(w=>{
+    if(w.deletedAt) return;
     if(!inActiveYear(w.fromDate)) return;
     if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
@@ -821,12 +823,20 @@ function delCCWorker(wid,name){
 
 function delCCWeekHistory(fromDate,ct){
   if(!confirm(`Xóa toàn bộ chấm công tuần ${viShort(fromDate)} của công trình "${ct}"?`)) return;
-  const before=ccData.length;
-  ccData=ccData.filter(r=>!(r.fromDate===fromDate&&r.ct===ct));
-  if(ccData.length===before){ toast('Không tìm thấy dữ liệu để xóa','error'); return; }
-  save('cc_v2',ccData);
-  updateTop(); // CC invoices computed dynamically — cần cập nhật tổng
+  const now = Date.now();
+  let found = false;
+  ccData = ccData.map(r => {
+    if (r.fromDate === fromDate && r.ct === ct && !r.deletedAt) {
+      found = true;
+      return { ...r, deletedAt: now, updatedAt: now, deviceId: DEVICE_ID };
+    }
+    return r;
+  });
+  if (!found) { toast('Không tìm thấy dữ liệu để xóa', 'error'); return; }
+  save('cc_v2', ccData);
+  updateTop();
   renderCCHistory();
+  renderCCTLT();
   toast('Đã xóa tuần chấm công');
 }
 
