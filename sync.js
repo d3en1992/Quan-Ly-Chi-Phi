@@ -244,10 +244,18 @@ async function pullChanges(yr, callback) {
       const catsData = fsUnwrap(catsDoc);
       if (catsData?.cats) {
         const ct = catsData.cats;
-        if (ct.ct)    { localStorage.setItem('cat_ct',    JSON.stringify(ct.ct));    _dbSave('cat_ct',    ct.ct).catch(()=>{}); }
-        if (ct.loai)  { localStorage.setItem('cat_loai',  JSON.stringify(ct.loai));  _dbSave('cat_loai',  ct.loai).catch(()=>{}); }
-        if (ct.ncc)   { localStorage.setItem('cat_ncc',   JSON.stringify(ct.ncc));   _dbSave('cat_ncc',   ct.ncc).catch(()=>{}); }
-        if (ct.nguoi) { localStorage.setItem('cat_nguoi', JSON.stringify(ct.nguoi)); _dbSave('cat_nguoi', ct.nguoi).catch(()=>{}); }
+        // Merge cloud cats vào local (không ghi đè) — bảo toàn danh mục vừa import từ Excel
+        const _mergeCatArr = (key, cloudArr) => {
+          if (!cloudArr || !cloudArr.length) return;
+          const local  = load(key, []);
+          const merged = [...new Set([...local, ...cloudArr])];
+          localStorage.setItem(key, JSON.stringify(merged));
+          _dbSave(key, merged).catch(()=>{});
+        };
+        if (ct.ct)    _mergeCatArr('cat_ct',    ct.ct);
+        if (ct.loai)  _mergeCatArr('cat_loai',  ct.loai);
+        if (ct.ncc)   _mergeCatArr('cat_ncc',   ct.ncc);
+        if (ct.nguoi) _mergeCatArr('cat_nguoi', ct.nguoi);
       }
       if (catsData?.hopDong) {
         localStorage.setItem('hopdong_v1', JSON.stringify(catsData.hopDong));

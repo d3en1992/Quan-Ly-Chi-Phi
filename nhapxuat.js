@@ -698,6 +698,19 @@ function _confirmImport() {
     rebuildCCCategories();
   }
 
+  // Nếu năm của dữ liệu import khác activeYear → chuyển sang "Tất cả" để tránh bị ẩn
+  const _importYears = new Set();
+  result.inv.forEach(r => { if (r.ngay)     _importYears.add(parseInt(r.ngay.slice(0, 4))); });
+  result.ung.forEach(r => { if (r.ngay)     _importYears.add(parseInt(r.ngay.slice(0, 4))); });
+  result.cc .forEach(r => { if (r.fromDate) _importYears.add(parseInt(r.fromDate.slice(0, 4))); });
+  result.thu.forEach(r => { if (r.ngay)     _importYears.add(parseInt(r.ngay.slice(0, 4))); });
+  if (_importYears.size > 0 && activeYear !== 0 && ![..._importYears].includes(activeYear)) {
+    // Import có dữ liệu năm khác activeYear → chuyển về "Tất cả"
+    activeYear = 0;
+    const yearSel = document.getElementById('global-year');
+    if (yearSel) yearSel.value = '0';
+  }
+
   // Refresh toàn bộ UI
   if (typeof buildYearSelect      === 'function') buildYearSelect();
   if (typeof rebuildEntrySelects  === 'function') rebuildEntrySelects();
@@ -717,7 +730,13 @@ function _confirmImport() {
   if (typeof renderCongNoThauPhu  === 'function') renderCongNoThauPhu();
 
   toast('✅ Import thành công!', 'success');
-  if (typeof processQueue === 'function') processQueue();
+  // Push lên Firebase sớm (500ms) thay vì chờ processQueue 2.5s
+  // Tránh trường hợp cloud pull xảy ra trước khi data import được đẩy lên
+  if (typeof pushChanges === 'function') {
+    setTimeout(() => pushChanges(), 500);
+  } else if (typeof processQueue === 'function') {
+    processQueue();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
