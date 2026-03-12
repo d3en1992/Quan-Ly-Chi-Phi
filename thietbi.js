@@ -18,12 +18,18 @@ const TB_STATUS_STYLE = {
 
 let tbData = load('tb_v1', []);
 
-// ── Dynamic name list ──────────────────────────────────────────────
-// Nguồn chính: cats.tbTen (danh mục). Merge thêm tbData.ten làm safety net.
+// ── Chuẩn hóa tên thiết bị: viết hoa chữ cái đầu mỗi từ ─────────
+function normalizeTbName(name) {
+  return (name || '').trim().toLowerCase()
+    .split(/\s+/).filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// ── Dynamic name list: CHỈ lấy từ cats.tbTen ──────────────────────
 function tbGetNames() {
-  const catList  = (cats && cats.tbTen) ? cats.tbTen : TB_TEN_MAY;
-  const dataNames = [...new Set(tbData.map(t => (t.ten||'').trim()).filter(Boolean))];
-  return [...new Set([...catList, ...dataNames])].sort((a,b)=>a.localeCompare(b,'vi'));
+  const catList = (cats && cats.tbTen && cats.tbTen.length) ? cats.tbTen : TB_TEN_MAY;
+  return [...catList].sort((a,b) => a.localeCompare(b,'vi'));
 }
 
 function tbRefreshNameDl() {
@@ -32,53 +38,60 @@ function tbRefreshNameDl() {
   dl.innerHTML = tbGetNames().map(n=>`<option value="${x(n)}">`).join('');
 }
 
-// Đồng bộ tên thiết bị từ tbData vào cats.tbTen (auto-migration, gọi khi cần)
+// Chuẩn hóa các entry hiện có trong cats.tbTen (không thêm từ tbData)
 function tbSyncNamesToCats() {
   if (!cats || !cats.tbTen) return;
-  let changed = false;
-  tbData.forEach(r => {
-    const n = (r.ten||'').trim();
-    if (n && !cats.tbTen.includes(n)) { cats.tbTen.push(n); changed = true; }
+  const before = JSON.stringify(cats.tbTen);
+  // Chỉ chuẩn hóa tên đã có — không sync từ tbData để tránh tên người lọt vào
+  cats.tbTen = cats.tbTen
+    .map(n => normalizeTbName(n))
+    .filter(Boolean);
+  // Dedupe theo lowercase
+  const seen = new Set();
+  cats.tbTen = cats.tbTen.filter(n => {
+    const k = n.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
   });
-  if (changed) { try { saveCats('tbTen'); } catch(e) {} }
+  if (JSON.stringify(cats.tbTen) !== before) {
+    try { saveCats('tbTen'); } catch(e) {}
+  }
 }
 
 // ── Populate selects ──────────────────────────────────────────────
 function tbPopulateSels() {
-  // Auto-sync: đảm bảo mọi tên trong tbData đều có trong cats.tbTen
-  tbSyncNamesToCats();
-
-  const allCts = [
-    TB_KHO_TONG,
-    ...[...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)]
-      .filter(v => v && v !== TB_KHO_TONG))].sort()
-  ];
-  const filtered = allCts.filter(ct => _ctInActiveYear(ct));
+  // Dropdown CT: CHỈ từ cats.congTrinh (không lấy từ tbData)
+  const validCts = [...new Set((cats.congTrinh || []).filter(v => v && v !== TB_KHO_TONG))].sort();
+  const allCts = [TB_KHO_TONG, ...validCts];
+  const filtered = allCts.filter(ct => ct === TB_KHO_TONG || _ctInActiveYear(ct));
 
   const sel = document.getElementById('tb-ct-sel');
   const cur = sel.value;
-  const ctForInput = allCts.filter(ct => ct === TB_KHO_TONG || _ctInActiveYear(ct) || ct === cur);
   sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
-    ctForInput.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+    filtered.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 
   const fSel = document.getElementById('tb-filter-ct');
   const fCur = fSel.value;
   fSel.innerHTML = '<option value="">Tất cả công trình</option>' +
     filtered.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
 
-  // Refresh name filter for KHO TỔNG bảng
+  // Bộ lọc tên KHO: chỉ lấy tên thiết bị có trong cats.tbTen
+  const validNames = new Set((cats.tbTen || []).map(n => n.toLowerCase()));
   const khoFSel = document.getElementById('kho-filter-ten');
   if (khoFSel) {
-    const khoNames = [...new Set(tbData.filter(r=>!r.deletedAt&&r.ct===TB_KHO_TONG).map(r=>(r.ten||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
+    const khoNames = [...new Set(
+      tbData.filter(r => !r.deletedAt && r.ct === TB_KHO_TONG && r.ten && validNames.has(r.ten.toLowerCase()))
+            .map(r => r.ten)
+    )].sort((a,b) => a.localeCompare(b,'vi'));
     const khoFCur = khoFSel.value;
     khoFSel.innerHTML = '<option value="">Tất cả thiết bị</option>' +
       khoNames.map(v=>`<option value="${x(v)}" ${v===khoFCur?'selected':''}>${x(v)}</option>`).join('');
   }
 
-  // Refresh name filter for Thống Kê bảng
+  // Bộ lọc tên Thống Kê: chỉ lấy từ cats.tbTen
   const tkFSel = document.getElementById('tk-filter-ten');
   if (tkFSel) {
-    const tkNames = [...new Set(tbData.map(r=>(r.ten||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'vi'));
+    const tkNames = tbGetNames();
     const tkFCur = tkFSel.value;
     tkFSel.innerHTML = '<option value="">Tất cả thiết bị</option>' +
       tkNames.map(v=>`<option value="${x(v)}" ${v===tkFCur?'selected':''}>${x(v)}</option>`).join('');
@@ -185,7 +198,8 @@ function tbSave() {
   const rows = [];
   const ngay = today();
   document.querySelectorAll('#tb-tbody tr').forEach(tr => {
-    const ten    = tr.querySelector('[data-tb="ten"]')?.value?.trim() || '';
+    const raw    = tr.querySelector('[data-tb="ten"]')?.value?.trim() || '';
+    const ten    = normalizeTbName(raw);  // chuẩn hóa viết hoa chữ cái đầu
     const sl     = parseFloat(tr.querySelector('[data-tb="soluong"]')?.value) || 0;
     const tt     = tr.querySelector('[data-tb="tinhtrang"]')?.value || 'Đang hoạt động';
     const nguoi  = tr.querySelector('[data-tb="nguoi"]')?.value?.trim() || '';
@@ -213,11 +227,14 @@ function tbSave() {
   });
 
   save('tb_v1', tbData);
-  // Sync tên thiết bị mới vào cats.tbTen
+  // Sync tên thiết bị mới vào cats.tbTen (dedup theo lowercase)
   if (cats && cats.tbTen) {
     let catChanged = false;
     rows.forEach(row => {
-      if (row.ten && !cats.tbTen.includes(row.ten)) { cats.tbTen.push(row.ten); catChanged = true; }
+      if (!row.ten) return;
+      const norm = normalizeTbName(row.ten);
+      const exists = cats.tbTen.some(n => n.toLowerCase() === norm.toLowerCase());
+      if (!exists) { cats.tbTen.push(norm); catChanged = true; }
     });
     if (catChanged) { try { saveCats('tbTen'); } catch(e) {} }
   }
@@ -356,11 +373,10 @@ function tbEditRow(id) {
     document.body.appendChild(ov);
   }
 
-  // Tất cả CT + KHO TỔNG
+  // CT dropdown: CHỈ từ cats.congTrinh + KHO TỔNG
   const allCts = [
     TB_KHO_TONG,
-    ...[...new Set([...cats.congTrinh, ...tbData.map(rec=>rec.ct)]
-      .filter(v => v && v !== TB_KHO_TONG))].sort()
+    ...[...new Set((cats.congTrinh || []).filter(v => v && v !== TB_KHO_TONG))].sort()
   ];
   const ctOpts = allCts.map(v=>`<option value="${x(v)}" ${v===r.ct?'selected':''}>${x(v)}</option>`).join('');
   const ttOpts = TB_TINH_TRANG.map(v=>`<option value="${v}" ${r.tinhtrang===v?'selected':''}>${v}</option>`).join('');
@@ -589,17 +605,21 @@ function tbRenderThongKeVon() {
   if (!tbody) return;
 
   const fTen = document.getElementById('tk-filter-ten')?.value || '';
+  // Chỉ thống kê record có tên thuộc cats.tbTen (lọc tên người)
+  const validTbNames = new Set((cats && cats.tbTen ? cats.tbTen : []).map(n => n.toLowerCase()));
   const map = {};
   tbData.forEach(r => {
     if (r.deletedAt) return;
     if (!r.ten) return;
-    if (!map[r.ten]) map[r.ten] = { ten: r.ten, total: 0, kho: 0, cts: {} };
+    if (!validTbNames.has(r.ten.toLowerCase())) return;  // bỏ qua nếu không phải tên thiết bị
+    const key = r.ten;
+    if (!map[key]) map[key] = { ten: key, total: 0, kho: 0, cts: {} };
     const sl = r.soluong || 0;
-    map[r.ten].total += sl;
+    map[key].total += sl;
     if (r.ct === TB_KHO_TONG) {
-      map[r.ten].kho += sl;
+      map[key].kho += sl;
     } else if (r.ct) {
-      map[r.ten].cts[r.ct] = (map[r.ten].cts[r.ct] || 0) + sl;
+      map[key].cts[r.ct] = (map[key].cts[r.ct] || 0) + sl;
     }
   });
 
