@@ -33,21 +33,11 @@ function addRow(d={}) {
   const dlNguoi = 'dlN' + num + Date.now();
   const dlNcc   = 'dlC' + num + Date.now();
 
-  const slVal = d.sl||'';
-  const thTien = slVal && d.tien ? numFmt((d.sl||1)*(d.tien||0)) : (d.tien?numFmt(d.tien):'');
-
   tr.innerHTML = `
     <td class="row-num">${num}</td>
     <td><select class="cell-input" data-f="loai">${loaiOpts}</select></td>
     <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
     <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}" inputmode="decimal"></td>
-    <td style="padding:0"><input type="number" class="cell-input" data-f="sl" min="0" step="0.01"
-      value="${x(slVal)}" placeholder="1"
-      style="text-align:center;width:100%;border:none;background:transparent;padding:7px 6px;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;-moz-appearance:textfield"
-      inputmode="decimal"></td>
-    <td style="padding:0;text-align:right">
-      <span data-f="thtien" style="display:block;padding:7px 8px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--green)">${thTien}</span>
-    </td>
     <td><input class="cell-input" data-f="nd" value="${x(d.nd||'')}" placeholder="Nội dung..."></td>
     <td>
       <input class="cell-input" data-f="nguoi" list="${dlNguoi}" value="${x(d.nguoi||'')}" placeholder="Nhập hoặc chọn...">
@@ -60,34 +50,22 @@ function addRow(d={}) {
     <td><button class="del-btn" onclick="delRow(this)">✕</button></td>
   `;
 
-  function updateThTien() {
-    const tienRaw = parseInt(tr.querySelector('[data-f="tien"]').dataset.raw||'0')||0;
-    const slRaw   = parseFloat(tr.querySelector('[data-f="sl"]').value)||1;
-    const th = tienRaw * slRaw;
-    const thEl = tr.querySelector('[data-f="thtien"]');
-    if(thEl) thEl.textContent = th ? numFmt(th) : '';
-    tr.querySelector('[data-f="thtien"]').dataset.raw = th;
-  }
-
   // Thousand-separator logic for tien input
   const tienInput = tr.querySelector('[data-f="tien"]');
   tienInput.addEventListener('input', function() {
     const raw = this.value.replace(/[.,]/g,'');
     this.dataset.raw = raw;
     if(raw) this.value = numFmt(parseInt(raw,10)||0);
-    updateThTien(); calcSummary();
+    calcSummary();
   });
   tienInput.addEventListener('focus', function() { this.value = this.dataset.raw || ''; });
   tienInput.addEventListener('blur', function() {
     const raw = parseInt(this.dataset.raw||'0',10)||0;
     this.value = raw ? numFmt(raw) : '';
   });
-  tr.querySelector('[data-f="sl"]').addEventListener('input', function() {
-    updateThTien(); calcSummary();
-  });
 
   tr.querySelectorAll('input,select').forEach(el => {
-    if(el.dataset.f!=='tien' && el.dataset.f!=='sl') {
+    if(el.dataset.f!=='tien') {
       el.addEventListener('input', calcSummary);
       el.addEventListener('change', calcSummary);
     }
@@ -120,12 +98,6 @@ function addRow(d={}) {
   });
 
   tbody.appendChild(tr);
-  // Trigger initial thTien
-  const tRaw = parseInt(tienInput.dataset.raw||'0')||0;
-  const sRaw = parseFloat(tr.querySelector('[data-f="sl"]').value)||1;
-  const th0 = tRaw*sRaw;
-  const thEl0 = tr.querySelector('[data-f="thtien"]');
-  if(thEl0){ thEl0.textContent = th0?numFmt(th0):''; thEl0.dataset.raw=th0; }
 }
 
 function delRow(btn) { btn.closest('tr').remove(); renumber(); calcSummary(); }
@@ -142,9 +114,7 @@ function calcSummary() {
     const loai = tr.querySelector('[data-f="loai"]')?.value||'';
     const ct   = tr.querySelector('[data-f="ct"]')?.value||'';
     const tienRaw = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
-    const sl   = parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1;
-    const thTien = tienRaw * sl;
-    if(loai||ct||tienRaw>0) { cnt++; total += thTien; }
+    if(loai||ct||tienRaw>0) { cnt++; total += tienRaw; }
   });
   document.getElementById('row-count').textContent = cnt;
   document.getElementById('entry-total').textContent = fmtM(total);
@@ -178,9 +148,7 @@ function saveAllRows(skipDupCheck) {
         nguoi: (tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
         ncc:   (tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
         nd:    (tr.querySelector('[data-f="nd"]')?.value||'').trim(),
-        tien,
-        sl:    parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1,
-        get thanhtien() { return Math.round(this.tien * this.sl); }
+        tien
       }
     });
   });
@@ -198,7 +166,7 @@ function saveAllRows(skipDupCheck) {
         !i.ccKey &&
         i.ngay === r.payload.ngay &&
         i.congtrinh === r.payload.congtrinh &&
-        (i.thanhtien||i.tien||0) === Math.round(r.payload.tien * r.payload.sl)
+        (i.thanhtien||i.tien||0) === r.payload.tien
       );
       if(!candidates.length) return;
 
@@ -305,8 +273,7 @@ function _doSaveRows(rows) {
       ngay: payload.ngay, congtrinh: payload.congtrinh, loai: payload.loai,
       nguoi: payload.nguoi, ncc: payload.ncc, nd: payload.nd,
       tien: payload.tien,
-      sl: payload.sl !== 1 ? payload.sl : undefined,
-      thanhtien: Math.round(payload.tien * payload.sl)
+      thanhtien: payload.tien
     };
     if(editId) {
       const idx = invoices.findIndex(i => String(i.id) === String(editId));
@@ -822,7 +789,7 @@ function openEntryEdit(inv) {
     // 4. Nạp dữ liệu vào form
     document.getElementById('entry-date').value = inv.ngay || today();
     document.getElementById('entry-tbody').innerHTML = '';
-    addRow({ loai: inv.loai, congtrinh: inv.congtrinh, sl: inv.sl || undefined,
+    addRow({ loai: inv.loai, congtrinh: inv.congtrinh,
              nguoi: inv.nguoi || '', ncc: inv.ncc || '', nd: inv.nd || '', tien: inv.tien || 0 });
     const row = document.querySelector('#entry-tbody tr');
     if (row) row.dataset.editId = String(inv.id);
@@ -968,21 +935,17 @@ function renderTodayInvoices() {
 
   const todayInvs = invoices.filter(i => i.ngay === date && !i.ccKey && !i.deletedAt);
   if(!todayInvs.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Chưa có hóa đơn nào vào ngày ${date}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Chưa có hóa đơn nào vào ngày ${date}</td></tr>`;
     if(footer) footer.innerHTML = '';
     return;
   }
 
   const mono = "font-family:'IBM Plex Mono',monospace";
   tbody.innerHTML = todayInvs.map(inv => {
-    const sl = inv.sl||1;
-    const th = inv.thanhtien || (inv.tien*(sl));
     return `<tr>
       <td><span class="tag tag-gold">${x(inv.loai||'—')}</span></td>
       <td style="font-size:12px;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.congtrinh||'—')}</td>
-      <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${inv.tien?numFmt(inv.tien):'—'}</td>
-      <td style="text-align:center;${mono};font-size:12px;color:var(--blue)">${sl!==1?sl:''}</td>
-      <td style="text-align:right;${mono};font-weight:700;color:var(--green)">${numFmt(th)}</td>
+      <td style="text-align:right;${mono};font-weight:700;color:var(--green)">${inv.tien?numFmt(inv.tien):'—'}</td>
       <td style="color:var(--ink2);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.nd||'—')}</td>
       <td style="color:var(--ink2);font-size:11px">${x(inv.nguoi||'—')}</td>
     </tr>`;

@@ -32,7 +32,35 @@ function _parseDate(v) {
   return '';
 }
 
+// Số không phải tiền (ngày công, số lượng, v.v.)
 function _num(v) { return parseFloat(String(v || '').replace(/[^0-9.\-]/g, '')) || 0; }
+
+// Locale number: xử lý 1.000.000 / 1,000,000 / 1.5 / 1,5
+function _pNum(s) {
+  s = String(s || '').replace(/[^0-9.,\-]/g, '');
+  if (!s) return 0;
+  const dots   = (s.match(/\./g) || []).length;
+  const commas = (s.match(/,/g)  || []).length;
+  if (dots   > 1) s = s.replace(/\./g, '');   // 1.000.000 → 1000000
+  if (commas > 1) s = s.replace(/,/g, '');    // 1,000,000 → 1000000
+  s = s.replace(',', '.');                     // 1,5 → 1.5
+  return parseFloat(s) || 0;
+}
+
+// Số tiền — hiểu "1tr", "1.5tr", "500k" + dấu phân cách locale
+function _money(v) {
+  if (!v && v !== 0) return 0;
+  const s = String(v).trim().toLowerCase().replace(/\s/g, '');
+  if (!s) return 0;
+  // 1tr / 1.5tr / 1,5tr
+  const mTr = s.match(/^([0-9][0-9,.]*)tr/);
+  if (mTr) return Math.round(_pNum(mTr[1]) * 1e6);
+  // 500k
+  const mK = s.match(/^([0-9][0-9,.]*)k$/);
+  if (mK) return Math.round(_pNum(mK[1]) * 1e3);
+  return _pNum(s);
+}
+
 function _str(v) { return v ? String(v).trim() : ''; }
 function _sheetRows(ws) { return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }); }
 
@@ -47,7 +75,7 @@ const _ALIASES = {
     ngay:      ['ngay','date','ngay ky','ky'],
     congtrinh: ['cong trinh','ct','project'],
     loai:      ['loai','loai chi phi','category','type','hang muc'],
-    nd:        ['nd','noi dung','description','dien giai','mo ta'],
+    nd:        ['nd','noi dung','description','dien giai','mo ta','ten hang hoa','hang hoa vat tu','ten vat tu'],
     tien:      ['tien','don gia','dongia','unit price','gia'],
     sl:        ['sl','soluong','so luong','quantity','qty'],
     thanhtien: ['thanh tien','tien','total','tong tien','tong'],
@@ -60,10 +88,10 @@ const _ALIASES = {
     id:        ['id','uuid','record id'],
     ngay:      ['ngay','date'],
     congtrinh: ['cong trinh','ct','project'],
-    tp:        ['nguoi','tp','thau phu','nha cc','ten','nha cung cap','supplier'],
+    tp:        ['nguoi','tp','thau phu','nha cc','ten','nha cung cap','supplier','ten thau phu','ten cong nhan'],
     tien:      ['tien','so tien','amount','so tien ung'],
     nd:        ['nd','noi dung','description','ghi chu'],
-    loai:      ['loai','type','loai ung'],
+    loai:      ['loai','type','loai ung','doi tuong','doituong'],
   },
   // ChamCong
   cc: {
@@ -97,7 +125,7 @@ const _ALIASES = {
   hd: {
     congtrinh:     ['cong trinh','ct','congtrinh','project'],
     giatri:        ['giatrihopdong','gia tri hd chinh','gia tri hop dong','hop dong chinh','gia tri'],
-    giatriphu:     ['phantho','phan tho','hd phu','gia tri hd phu','hdphu'],
+    giatriphu:     ['phantho','phan tho','hd phu','gia tri hd phu','hdphu','hop dong phu','gia tri phu','gia tri hop dong phu'],
     phanhoanthien: ['phanhoanthien','phan hoan thien','hoan thien'],
     phatsinh:      ['phatsinh','phat sinh','phat sinh them'],
     ghichu:        ['ghichu','ghi chu','note','nd','mo ta'],
@@ -142,10 +170,10 @@ function _detectHeader(rows, aliases) {
 
 function _get(row, colMap, field, fallbackIdx) {
   const ci = colMap[field] !== undefined ? colMap[field] : fallbackIdx;
-  return ci !== undefined ? row[ci] : '';
+  return (ci !== undefined && ci >= 0) ? (row[ci] !== undefined ? row[ci] : '') : '';
 }
 
-// Lấy id: giữ nguyên nếu có, tạo mới nếu thiếu
+// File export không còn cột ID → luôn tạo UUID mới khi import
 function _getId(row, colMap, fallbackIdx) {
   const v = _str(_get(row, colMap, 'id', fallbackIdx));
   return v || uuid();
@@ -157,16 +185,18 @@ function _getId(row, colMap, fallbackIdx) {
 
 function _detectSheetType(name) {
   const n = _normStr(name);
-  if (n.includes('hoa don nhanh') || n.includes('hoadonnhanh'))       return 'invQ';
-  if (n.includes('hoa don chi tiet') || n.includes('hoadonchitiet'))   return 'invD';
-  if (n.includes('hoa don') || n.includes('chi phi') || n.match(/^1_/) || n.match(/^1\b/)) return 'inv';
-  if (n.includes('tien ung')  || n.match(/^2_/) || n.match(/^2\b/))   return 'ung';
-  if (n.includes('cham cong') || n.match(/^3_/) || n.match(/^3\b/))   return 'cc';
-  if (n.includes('thiet bi')  || n.match(/^4_/) || n.match(/^4\b/))   return 'tb';
-  if (n.includes('danh muc')  || n.match(/^5_/) || n.match(/^5\b/))   return 'cats';
-  if (n.includes('hop dong')  || n.includes('hopdong') || n.match(/^6\b/)) return 'hd';
-  if (n.includes('thu tien')  || n.includes('thutien') || n.match(/^7\b/))  return 'thu';
-  if (n.includes('thau phu')  || n.includes('thauphu') || n.match(/^[89]\b/)) return 'tp';
+  // Numbered sheet names (new format: "1_HoaDonNhanh", etc.)
+  // After _normStr, underscore → space: "1 hoadonnhanh"
+  if (n.includes('hoa don nhanh') || n.includes('hoadonnhanh'))             return 'invQ';
+  if (n.includes('hoa don chi tiet') || n.includes('hoadonchitiet'))         return 'invD';
+  if (n.includes('hoa don') || n.includes('chi phi') || n.match(/^1[ _]/) || n.match(/^1\b/)) return 'inv';
+  if (n.includes('tien ung') || n.includes('tienung') || n.match(/^4[ _]/) || n.match(/^4\b/)) return 'ung';
+  if (n.includes('cham cong') || n.includes('chamcong') || n.match(/^3[ _]/) || n.match(/^3\b/)) return 'cc';
+  if (n.includes('thiet bi') || n.includes('thietbi') || n.match(/^5[ _]/) || n.match(/^5\b/)) return 'tb';
+  if (n.includes('danh muc') || n.includes('danhmuc') || n.match(/^6[ _]/) || n.match(/^6\b/)) return 'cats';
+  if (n.includes('hop dong chinh') || n.includes('hopdongchinh') || n.includes('hop dong') || n.includes('hopdong') || n.match(/^7[ _]/) || n.match(/^7\b/)) return 'hd';
+  if (n.includes('thu tien') || n.includes('thutien') || n.match(/^8[ _]/) || n.match(/^8\b/)) return 'thu';
+  if (n.includes('thau phu') || n.includes('thauphu') || n.match(/^9[ _]/) || n.match(/^9\b/)) return 'tp';
   return null;
 }
 
@@ -174,7 +204,9 @@ function _detectSheetType(name) {
 // [4] PARSE FUNCTIONS
 // ══════════════════════════════════════════════════════════════
 
-function _parseInvSheet(rows) {
+// ── 4a. HoaDonNhanh — mỗi dòng = 1 hóa đơn độc lập (không gộp)
+// Cột: NGÀY · CÔNG TRÌNH · LOẠI CHI PHÍ · NỘI DUNG · SỐ TIỀN · NGƯỜI THỰC HIỆN · NHÀ CUNG CẤP
+function _parseInvNhanhSheet(rows) {
   const { headerIdx, colMap } = _detectHeader(rows, _ALIASES.inv);
   const dataStart = headerIdx >= 0 ? headerIdx + 1 : _findDateRow(rows);
   const errors = [], records = [];
@@ -183,29 +215,81 @@ function _parseInvSheet(rows) {
     const r = rows[i];
     if (r.every(c => !c && c !== 0)) continue;
 
-    const ngay      = _parseDate(_get(r, colMap, 'ngay',      1));
-    const ct        = _str      (_get(r, colMap, 'congtrinh', 2));
-    const loai      = _str      (_get(r, colMap, 'loai',      3));
-    const nd        = _str      (_get(r, colMap, 'nd',        4));
-    const tien      = _num      (_get(r, colMap, 'tien',      5));
-    const sl        = _num      (_get(r, colMap, 'sl',        6)) || 1;
-    const thanhtien = _num      (_get(r, colMap, 'thanhtien', 7)) || tien * sl;
-    const nguoi     = _str      (_get(r, colMap, 'nguoi',     8));
-    const ncc       = _str      (_get(r, colMap, 'ncc',       9));
-    const sohd      = _str      (_get(r, colMap, 'sohd',      10));
-    const id        = _getId    (r, colMap, 11);
+    const ngay  = _parseDate(_get(r, colMap, 'ngay',      0));
+    const ct    = _str      (_get(r, colMap, 'congtrinh', 1));
+    const loai  = _str      (_get(r, colMap, 'loai',      2));
+    const nd    = _str      (_get(r, colMap, 'nd',        3));
+    // SỐ TIỀN → ưu tiên cột thanhtien, fallback cột tien
+    const tien  = _money    (_get(r, colMap, 'thanhtien', 4)) || _money(_get(r, colMap, 'tien', 4));
+    const nguoi = _str      (_get(r, colMap, 'nguoi',     5));
+    const ncc   = _str      (_get(r, colMap, 'ncc',       6));
+    const sohd  = _str      (_get(r, colMap, 'sohd',     -1));
 
     if (!ngay) { errors.push(`Hàng ${i+1}: Ngày không hợp lệ ("${r[0] || r[1]}")`); continue; }
     if (!ct)   { errors.push(`Hàng ${i+1}: Thiếu Công Trình`); continue; }
     if (!loai) { errors.push(`Hàng ${i+1}: Thiếu Loại Chi Phí`); continue; }
-    if (!tien && !thanhtien) { errors.push(`Hàng ${i+1}: Số tiền = 0`); continue; }
+    if (!tien) { errors.push(`Hàng ${i+1}: Số tiền = 0`); continue; }
 
     const now = Date.now();
     records.push({
-      id, createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
-      ngay, congtrinh: ct, loai, nd, tien, sl, thanhtien, nguoi, ncc, sohd,
+      id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
+      ngay, congtrinh: ct, loai, nd, tien, sl: 1, thanhtien: tien, nguoi, ncc, sohd,
     });
   }
+  return { records, errors };
+}
+
+// ── 4b. HoaDonChiTiet — group theo (ngay + congtrinh + loai)
+// Nhiều dòng cùng ngày/CT/loại → 1 hóa đơn, thanhtien = tổng, nd = nối chuỗi
+// Cột: NGÀY · CÔNG TRÌNH · LOẠI CHI PHÍ · TÊN HÀNG HÓA/VẬT TƯ · ĐƠN GIÁ · SỐ LƯỢNG · THÀNH TIỀN · NGƯỜI TH · NHÀ CC · SỐ HĐ
+function _parseInvChiTietSheet(rows) {
+  const { headerIdx, colMap } = _detectHeader(rows, _ALIASES.inv);
+  const dataStart = headerIdx >= 0 ? headerIdx + 1 : _findDateRow(rows);
+  const errors = [];
+  // Dùng Map để group — O(n)
+  const groupMap = new Map();
+
+  for (let i = dataStart; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.every(c => !c && c !== 0)) continue;
+
+    const ngay   = _parseDate(_get(r, colMap, 'ngay',      0));
+    const ct     = _str      (_get(r, colMap, 'congtrinh', 1));
+    const loai   = _str      (_get(r, colMap, 'loai',      2));
+    const nd     = _str      (_get(r, colMap, 'nd',        3));
+    const dongia = _money    (_get(r, colMap, 'tien',      4));
+    const sl     = _num      (_get(r, colMap, 'sl',        5)) || 1;
+    // Ưu tiên THÀNH TIỀN, fallback đơn giá × số lượng
+    const rowAmt = _money(_get(r, colMap, 'thanhtien', 6)) || (dongia * sl) || dongia;
+    const nguoi  = _str      (_get(r, colMap, 'nguoi',     7));
+    const ncc    = _str      (_get(r, colMap, 'ncc',       8));
+    const sohd   = _str      (_get(r, colMap, 'sohd',      9));
+
+    if (!ngay)   { errors.push(`Hàng ${i+1}: Ngày không hợp lệ ("${r[0] || r[1]}")`); continue; }
+    if (!ct)     { errors.push(`Hàng ${i+1}: Thiếu Công Trình`); continue; }
+    if (!loai)   { errors.push(`Hàng ${i+1}: Thiếu Loại Chi Phí`); continue; }
+    if (!rowAmt) { errors.push(`Hàng ${i+1}: Số tiền = 0`); continue; }
+
+    const key = `${ngay}|${ct}|${loai}`;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { ngay, congtrinh: ct, loai, thanhtien: 0, _nds: [], nguoi: '', ncc: '', sohd: '' });
+    }
+    const g = groupMap.get(key);
+    g.thanhtien += rowAmt;
+    if (nd && !g._nds.includes(nd)) g._nds.push(nd);
+    if (!g.nguoi && nguoi) g.nguoi = nguoi;
+    if (!g.ncc   && ncc)   g.ncc   = ncc;
+    if (!g.sohd  && sohd)  g.sohd  = sohd;
+  }
+
+  const now = Date.now();
+  const records = [...groupMap.values()].map(g => ({
+    id: uuid(), createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
+    ngay: g.ngay, congtrinh: g.congtrinh, loai: g.loai,
+    nd: g._nds.join(' / '),
+    tien: g.thanhtien, sl: 1, thanhtien: g.thanhtien,
+    nguoi: g.nguoi, ncc: g.ncc, sohd: g.sohd,
+  }));
   return { records, errors };
 }
 
@@ -221,7 +305,7 @@ function _parseUngSheet(rows) {
     const ngay  = _parseDate(_get(r, colMap, 'ngay',      1));
     const ct    = _str      (_get(r, colMap, 'congtrinh', 2));
     const tp    = _str      (_get(r, colMap, 'tp',        3));
-    const tien  = _num      (_get(r, colMap, 'tien',      4));
+    const tien  = _money    (_get(r, colMap, 'tien',      4));
     const nd    = _str      (_get(r, colMap, 'nd',        5));
     const loai  = _str      (_get(r, colMap, 'loai',      6)) || 'thauphu';
     const id    = _getId    (r, colMap, 7);
@@ -231,11 +315,20 @@ function _parseUngSheet(rows) {
     if (!tp)   { errors.push(`Hàng ${i+1}: Thiếu Tên Người / Thầu Phụ`); continue; }
     if (!tien) { errors.push(`Hàng ${i+1}: Số tiền = 0`); continue; }
 
+    // Normalize loai: accept English keys OR Vietnamese display text
+    let loaiNorm = 'thauphu';
+    if (loai === 'congnhan' || loai === 'thauphu') {
+      loaiNorm = loai;
+    } else {
+      const ln = _normStr(loai);
+      if (ln.includes('cong nhan') || ln.includes('congnhan')) loaiNorm = 'congnhan';
+    }
+
     const now = Date.now();
     records.push({
       id, createdAt: now, updatedAt: now, deletedAt: null, deviceId: DEVICE_ID,
       ngay, congtrinh: ct, tp, tien, nd,
-      loai: ['thauphu','congnhan'].includes(loai) ? loai : 'thauphu',
+      loai: loaiNorm,
     });
   }
   return { records, errors };
@@ -253,9 +346,9 @@ function _parseCCSheet(rows) {
     const fromDate = _parseDate(_get(r, colMap, 'fromDate', 0));
     const ct       = _str      (_get(r, colMap, 'ct',       1));
     const name     = _str      (_get(r, colMap, 'name',     2));
-    const luong    = _num      (_get(r, colMap, 'luong',    3));
-    const phucap   = _num      (_get(r, colMap, 'phucap',   4));
-    const hdmuale  = _num      (_get(r, colMap, 'hdmuale',  5));
+    const luong    = _money    (_get(r, colMap, 'luong',    3));
+    const phucap   = _money    (_get(r, colMap, 'phucap',   4));
+    const hdmuale  = _money    (_get(r, colMap, 'hdmuale',  5));
     const d = [
       _num(_get(r, colMap, 'cn', 6)),
       _num(_get(r, colMap, 't2', 7)),
@@ -333,11 +426,11 @@ function _parseHdSheet(rows) {
     if (r.every(c => !c && c !== 0)) continue;
 
     const ct           = _str(_get(r, colMap, 'congtrinh',     0));
-    const giaTri       = _num(_get(r, colMap, 'giatri',        1));
-    const giaTriphu    = _num(_get(r, colMap, 'giatriphu',     2));
-    const phanHoanThien= _num(_get(r, colMap, 'phanhoanthien', 3));
-    const phatSinh     = _num(_get(r, colMap, 'phatsinh',      4));
-    const ghichu       = _str(_get(r, colMap, 'ghichu',        5));
+    const giaTri       = _money(_get(r, colMap, 'giatri',        1));
+    const giaTriphu    = _money(_get(r, colMap, 'giatriphu',     2));
+    const phanHoanThien= _money(_get(r, colMap, 'phanhoanthien', 3));
+    const phatSinh     = _money(_get(r, colMap, 'phatsinh',      4));
+    const ghichu       = _str  (_get(r, colMap, 'ghichu',        5));
 
     if (!ct) { errors.push(`Hàng ${i+1}: Thiếu Công Trình`); continue; }
     records.push({ ct, giaTri, giaTriphu, phanHoanThien, phatSinh, ghichu });
@@ -357,7 +450,7 @@ function _parseThuSheet(rows) {
 
     const ct    = _str      (_get(r, colMap, 'congtrinh', 0));
     const ngay  = _parseDate(_get(r, colMap, 'ngay',      1));
-    const tien  = _num      (_get(r, colMap, 'sotien',    2));
+    const tien  = _money    (_get(r, colMap, 'sotien',    2));
     const nguoi = _str      (_get(r, colMap, 'nguoith',   3));
     const nd    = _str      (_get(r, colMap, 'ghichu',    4));
     const id    = _getId    (r, colMap, 5);
@@ -388,8 +481,8 @@ function _parseTpSheet(rows) {
     const ct       = _str      (_get(r, colMap, 'congtrinh', 0));
     const thauphu  = _str      (_get(r, colMap, 'tenthau',   1)).toUpperCase();
     const ngay     = _parseDate(_get(r, colMap, 'ngay',      2)) || today();
-    const giaTri   = _num      (_get(r, colMap, 'giatri',    3));
-    const phatSinh = _num      (_get(r, colMap, 'phatsinh',  4));
+    const giaTri   = _money    (_get(r, colMap, 'giatri',    3));
+    const phatSinh = _money    (_get(r, colMap, 'phatsinh',  4));
     const nd       = _str      (_get(r, colMap, 'ghichu',    5));
     const id       = _getId    (r, colMap, 6);
 
@@ -405,21 +498,73 @@ function _parseTpSheet(rows) {
   return { records, errors };
 }
 
-// DanhMuc — 7 cột: congtrinh · loaichiphi · nhacc · nguoithuchien · thauphu · congnhan · thietbi
+// DanhMuc — hỗ trợ 2 định dạng:
+// Cũ (7 cột): congtrinh · loaichiphi · nhacc · nguoithuchien · thauphu · congnhan · thietbi
+// Mới (2 cột): LOẠI DANH MỤC | TÊN
 function _parseCatsSheet(rows) {
-  const cats = { ct: [], loai: [], ncc: [], nguoi: [], tp: [], cn: [] };
-  // Bỏ qua row 0 (header) — bắt đầu từ row 1
-  const dataStart = rows.findIndex((r, i) => i > 0 && r.some(c => _str(c)));
-  const start = dataStart > 0 ? dataStart : 1;
-  for (let i = start; i < rows.length; i++) {
-    const r = rows[i];
-    if (_str(r[0])) cats.ct.push(_str(r[0]));
-    if (_str(r[1])) cats.loai.push(_str(r[1]));
-    if (_str(r[2])) cats.ncc.push(_str(r[2]));
-    if (_str(r[3])) cats.nguoi.push(_str(r[3]));
-    if (_str(r[4])) cats.tp.push(_str(r[4]));
-    if (_str(r[5])) cats.cn.push(_str(r[5]));
-    // cột 6 (thietbi) — đọc nhưng chưa có danh mục riêng
+  const cats = { ct: [], loai: [], ncc: [], nguoi: [], tp: [], cn: [], tbTen: [] };
+
+  // Tìm header row (bỏ qua rows title/instructions)
+  let dataStart = 1;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const normed = (rows[i] || []).map(c => _normStr(String(c || '')));
+    if (normed.some(h => h.includes('loai danh muc') || h.includes('loaidanhmuc') || h === 'ten' || h.includes('loai chi phi') || h.includes('cong trinh'))) {
+      dataStart = i + 1;
+      break;
+    }
+  }
+
+  // Detect format: 2-cột mới nếu cột đầu có tên nhóm danh mục
+  const _groupMap = {
+    'cong trinh':              'ct',
+    'congtrinh':               'ct',
+    'loai chi phi':            'loai',
+    'loaichiphi':              'loai',
+    'nha cung cap':            'ncc',
+    'nhacungcap':              'ncc',
+    'nguoi thuc hien':         'nguoi',
+    'nguoithuchien':           'nguoi',
+    'thau phu':                'tp',
+    'thauphu':                 'tp',
+    'cong nhan':               'cn',
+    'congnhan':                'cn',
+    'may thiet bi thi cong':   'tbTen',
+    'thiet bi thi cong':       'tbTen',
+    'thietbi':                 'tbTen',
+    'may thiet bi':            'tbTen',
+  };
+
+  // Kiểm tra cột đầu của row đầu tiên có phải tên nhóm không
+  const firstDataRow = rows[dataStart] || [];
+  const firstCellN = _normStr(String(firstDataRow[0] || ''));
+  const isTwoCol = Object.keys(_groupMap).some(k => firstCellN === k || firstCellN.includes(k));
+
+  if (isTwoCol) {
+    // Format 2 cột: cột 0 = LOẠI DANH MỤC, cột 1 = TÊN
+    for (let i = dataStart; i < rows.length; i++) {
+      const r = rows[i];
+      const groupRaw = _normStr(String(r[0] || ''));
+      const item     = _str(r[1]);
+      if (!item) continue;
+      for (const [key, field] of Object.entries(_groupMap)) {
+        if (groupRaw === key || groupRaw.includes(key)) {
+          cats[field].push(item);
+          break;
+        }
+      }
+    }
+  } else {
+    // Format cũ 7 cột
+    for (let i = dataStart; i < rows.length; i++) {
+      const r = rows[i];
+      if (_str(r[0])) cats.ct.push(_str(r[0]));
+      if (_str(r[1])) cats.loai.push(_str(r[1]));
+      if (_str(r[2])) cats.ncc.push(_str(r[2]));
+      if (_str(r[3])) cats.nguoi.push(_str(r[3]));
+      if (_str(r[4])) cats.tp.push(_str(r[4]));
+      if (_str(r[5])) cats.cn.push(_str(r[5]));
+      if (_str(r[6])) cats.tbTen.push(_str(r[6]));
+    }
   }
   return cats;
 }
@@ -448,37 +593,49 @@ function _processImportWorkbook(wb, filename) {
   const logOk  = [];
   const logErr = [];
 
-  // Nhận dạng sheet theo tên — invQ/invD/inv đều gộp vào result.inv
+  // ── Nhận dạng sheet theo tên (ưu tiên tên, fallback theo vị trí)
   const detected = {};
   wb.SheetNames.forEach(name => {
     const t = _detectSheetType(name);
     if (!t) return;
-    const key = (t === 'invQ' || t === 'invD') ? 'inv' : t;
-    if (key === 'inv') {
-      // Cho phép cả 2 sheet hóa đơn
-      if (!detected.inv)  detected.inv  = name;
-      else if (!detected.inv2) detected.inv2 = name;
-    } else if (!detected[key]) {
-      detected[key] = name;
-    }
+    // invQ (HoaDonNhanh) và invD (HoaDonChiTiet) giữ riêng biệt
+    if (!detected[t]) detected[t] = name;
   });
 
-  // Fallback: nếu không nhận được tên → gán theo thứ tự
-  const fallback = ['inv','ung','cc','tb','cats','hd','thu','tp'];
+  // Fallback theo vị trí sheet nếu tên không nhận dạng được
+  // Thứ tự chuẩn: 1_HoaDonNhanh · 2_HoaDonChiTiet · 3_ChamCong · 4_TienUng · 5_ThietBi · 6_DanhMuc · 7_HopDongChinh · 8_ThuTien · 9_HopDongThauPhu
+  const fallback = ['invQ', 'invD', 'cc', 'ung', 'tb', 'cats', 'hd', 'thu', 'tp'];
   wb.SheetNames.forEach((name, idx) => {
     const t = fallback[idx];
     if (t && !detected[t]) detected[t] = name;
   });
 
-  // ── HoaDon (nhanh + chi tiết đều parse như nhau)
-  ['inv','inv2'].forEach(key => {
-    if (!detected[key]) return;
-    const rows = _sheetRows(wb.Sheets[detected[key]]);
-    const { records, errors } = _parseInvSheet(rows);
+  // ── Sheet 1: HoaDonNhanh — mỗi dòng = 1 hóa đơn
+  if (detected.invQ) {
+    const rows = _sheetRows(wb.Sheets[detected.invQ]);
+    const { records, errors } = _parseInvNhanhSheet(rows);
     result.inv.push(...records);
+    if (records.length) logOk.push(`✅ HĐ Nhanh: ${records.length} bản ghi`);
+    errors.forEach(e => logErr.push(`[HĐ Nhanh] ${e}`));
+  }
+
+  // ── Sheet 2: HoaDonChiTiet — group theo (ngay + congtrinh + loai)
+  if (detected.invD) {
+    const rows = _sheetRows(wb.Sheets[detected.invD]);
+    const { records, errors } = _parseInvChiTietSheet(rows);
+    result.inv.push(...records);
+    if (records.length) logOk.push(`✅ HĐ Chi Tiết: ${records.length} nhóm hóa đơn`);
+    errors.forEach(e => logErr.push(`[HĐ Chi Tiết] ${e}`));
+  }
+
+  // Fallback: nếu có sheet 'inv' (format cũ) chưa được parse
+  if (detected.inv && !detected.invQ && !detected.invD) {
+    const rows = _sheetRows(wb.Sheets[detected.inv]);
+    const { records, errors } = _parseInvNhanhSheet(rows);
+    result.inv.push(...records);
+    if (records.length) logOk.push(`✅ Hóa Đơn: ${records.length} bản ghi`);
     errors.forEach(e => logErr.push(`[Hóa Đơn] ${e}`));
-  });
-  if (result.inv.length) logOk.push(`✅ Hóa Đơn: ${result.inv.length} bản ghi`);
+  }
 
   // ── TienUng
   if (detected.ung) {
@@ -627,7 +784,58 @@ function _confirmImport() {
   if (!result) return;
   ov.style.display = 'none';
 
-  // Merge array: dedup theo id + updatedAt (mergeUnique từ core.js)
+  const skipLog = [];
+
+  // ── Dedup: lọc bỏ bản ghi đã tồn tại trong hệ thống
+  // Key fingerprint cho từng loại dữ liệu
+  if (result.inv && result.inv.length) {
+    const existSet = new Set(
+      invoices.filter(i => !i.deletedAt)
+        .map(i => `${i.ngay}|${i.congtrinh}|${i.thanhtien || i.tien}|${(i.nd || '').substring(0, 50)}`)
+    );
+    const before = result.inv.length;
+    result.inv = result.inv.filter(r => {
+      const key = `${r.ngay}|${r.congtrinh}|${r.thanhtien || r.tien}|${(r.nd || '').substring(0, 50)}`;
+      return !existSet.has(key);
+    });
+    const skipped = before - result.inv.length;
+    if (skipped > 0) skipLog.push(`Bỏ qua ${skipped} hóa đơn trùng`);
+  }
+
+  if (result.ung && result.ung.length) {
+    const existSet = new Set(
+      ungRecords.filter(u => !u.deletedAt && !u.cancelled)
+        .map(u => `${u.ngay}|${u.congtrinh}|${u.tp}|${u.tien}`)
+    );
+    const before = result.ung.length;
+    result.ung = result.ung.filter(r => !existSet.has(`${r.ngay}|${r.congtrinh}|${r.tp}|${r.tien}`));
+    const skipped = before - result.ung.length;
+    if (skipped > 0) skipLog.push(`Bỏ qua ${skipped} tiền ứng trùng`);
+  }
+
+  if (result.thu && result.thu.length) {
+    const existSet = new Set(
+      thuRecords.filter(r => !r.deletedAt)
+        .map(r => `${r.ngay}|${r.congtrinh}|${r.tien}`)
+    );
+    const before = result.thu.length;
+    result.thu = result.thu.filter(r => !existSet.has(`${r.ngay}|${r.congtrinh}|${r.tien}`));
+    const skipped = before - result.thu.length;
+    if (skipped > 0) skipLog.push(`Bỏ qua ${skipped} thu tiền trùng`);
+  }
+
+  if (result.tp && result.tp.length) {
+    const existSet = new Set(
+      thauPhuContracts.filter(r => !r.deletedAt)
+        .map(r => `${r.congtrinh}|${r.thauphu}|${r.giaTri}`)
+    );
+    const before = result.tp.length;
+    result.tp = result.tp.filter(r => !existSet.has(`${r.congtrinh}|${r.thauphu}|${r.giaTri}`));
+    const skipped = before - result.tp.length;
+    if (skipped > 0) skipLog.push(`Bỏ qua ${skipped} HĐ thầu phụ trùng`);
+  }
+
+  // ── Merge array: dùng mergeUnique (dedup theo id + updatedAt từ core.js)
   const _importMerge = (key, incoming, assign) => {
     if (!incoming || !incoming.length) return;
     const merged = mergeUnique(load(key, []), incoming);
@@ -729,7 +937,8 @@ function _confirmImport() {
   if (typeof renderLaiLo          === 'function') renderLaiLo();
   if (typeof renderCongNoThauPhu  === 'function') renderCongNoThauPhu();
 
-  toast('✅ Import thành công!', 'success');
+  const skipMsg = skipLog.length ? ' (' + skipLog.join(', ') + ')' : '';
+  toast(`✅ Import thành công!${skipMsg}`, 'success');
   // Push lên Firebase sớm (500ms) thay vì chờ processQueue 2.5s
   // Tránh trường hợp cloud pull xảy ra trước khi data import được đẩy lên
   if (typeof pushChanges === 'function') {
@@ -811,10 +1020,10 @@ function openExportModal() {
     <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#333;line-height:1.8">
       <strong>File xuất gồm 9 sheets:</strong><br>
       <span style="color:#555">
-        HoaDonNhanh · HoaDonChiTiet · TienUng · ChamCong · ThietBi<br>
-        DanhMuc · HopDong · ThuTien · ThauPhu
+        1_HoaDonNhanh · 2_HoaDonChiTiet · 3_ChamCong · 4_TienUng · 5_ThietBi<br>
+        6_DanhMuc · 7_HopDongChinh · 8_ThuTien · 9_HopDongThauPhu
       </span><br>
-      <span style="color:#888;font-size:11px">File có thể import lại trực tiếp (round-trip).</span>
+      <span style="color:#888;font-size:11px">Header tiếng Việt có dấu · Ngày DD-MM-YYYY · Có thể import lại.</span>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="document.getElementById('export-modal-overlay').style.display='none'" style="flex:1;padding:11px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-family:inherit;font-size:13px;cursor:pointer">Huỷ</button>
@@ -839,114 +1048,363 @@ function _doExport() {
   const expTp  = thauPhuContracts.filter(r  => !r.deletedAt && (yr === 0 || filterY(r.ngay)));
   const expHd  = Object.entries(hopDongData).filter(([, v]) => !v.deletedAt);
 
+  // ── Helpers ──────────────────────────────────────────────────
+  // Format ngày YYYY-MM-DD → DD-MM-YYYY
+  const fmtDate = d => {
+    if (!d) return '';
+    const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : String(d);
+  };
+
+  // Màu sắc
+  const CLR_HEADER_BG  = '1A1A1A'; // Nền header: đen
+  const CLR_HEADER_FG  = 'FFFFFF'; // Chữ header: trắng
+  const CLR_TITLE_BG   = '1A3C34'; // Nền title: xanh đậm
+  const CLR_TITLE_FG   = 'FFFFFF';
+  const CLR_NOTE_BG    = 'F0F4FF'; // Nền ghi chú: xanh nhạt
+  const CLR_NOTE_FG    = '444466';
+
+  const S_TITLE = {
+    font: { bold: true, sz: 12, color: { rgb: CLR_TITLE_FG } },
+    fill: { fgColor: { rgb: CLR_TITLE_BG } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+  };
+  const S_NOTE = {
+    font: { italic: true, sz: 9, color: { rgb: CLR_NOTE_FG } },
+    fill: { fgColor: { rgb: CLR_NOTE_BG } },
+    alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+  };
+  const S_HEADER = {
+    font: { bold: true, sz: 10, color: { rgb: CLR_HEADER_FG } },
+    fill: { fgColor: { rgb: CLR_HEADER_BG } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+  };
+  const S_DATA = {
+    alignment: { vertical: 'top', wrapText: false },
+  };
+  const S_NUMBER = {
+    numFmt: '#,##0',
+    alignment: { horizontal: 'right', vertical: 'top' },
+  };
+
+  /**
+   * Tạo worksheet với:
+   *   Row 0 — Dòng tiêu đề (merge toàn hàng)
+   *   Row 1 — Dòng ghi chú hướng dẫn (merge toàn hàng)
+   *   Row 2 — Header cột (nền đen, chữ trắng, đậm)
+   *   Row 3+ — Dữ liệu
+   *
+   * @param {Array<{label:string, w:number, num?:boolean}>} cols  - định nghĩa cột
+   * @param {Array<Array>}                                  data  - mảng dữ liệu
+   * @param {string}                                        title - tiêu đề sheet
+   * @param {string}                                        note  - ghi chú hướng dẫn
+   */
+  const _mkSheet = (cols, data, title, note) => {
+    const nCols = cols.length;
+    const headers = cols.map(c => c.label);
+
+    // AOA: title · note · header · ...data
+    const aoa = [
+      [title, ...Array(nCols - 1).fill('')],
+      [note,  ...Array(nCols - 1).fill('')],
+      headers,
+      ...data,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Merge title + note dòng toàn hàng
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: nCols - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: nCols - 1 } },
+    ];
+
+    // Độ rộng cột
+    ws['!cols'] = cols.map(c => ({ wch: c.w || 15 }));
+
+    // Freeze: đóng băng sau 3 dòng đầu (title + note + header)
+    ws['!freeze'] = { xSplit: 0, ySplit: 3 };
+
+    // Chiều cao dòng
+    ws['!rows'] = [
+      { hpt: 26 }, // title
+      { hpt: 18 }, // note
+      { hpt: 22 }, // header
+    ];
+
+    // Style từng ô
+    for (let r = 0; r < aoa.length; r++) {
+      for (let c = 0; c < nCols; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        if (r === 0) {
+          ws[addr].s = S_TITLE;
+        } else if (r === 1) {
+          ws[addr].s = S_NOTE;
+        } else if (r === 2) {
+          ws[addr].s = S_HEADER;
+        } else {
+          // Cột số → căn phải + format tiền
+          if (cols[c] && cols[c].num) {
+            ws[addr].s = S_NUMBER;
+          } else {
+            ws[addr].s = S_DATA;
+          }
+        }
+      }
+    }
+
+    return ws;
+  };
+
   const wb = XLSX.utils.book_new();
 
-  // ── Sheet 1: HoaDonNhanh — nhập nhanh (sl=1, không tách đơn giá)
-  // Columns: id · ngay · congtrinh · loai · nd · tien · nguoi · ncc · sohd
-  const invQ_rows = expInv.filter(i => (i.sl || 1) <= 1);
-  const invQ_data = [['id','ngay','congtrinh','loai','nd','tien','nguoi','ncc','sohd']];
-  invQ_rows.forEach(i => invQ_data.push([
-    i.id || '', i.ngay || '', i.congtrinh || '', i.loai || '', i.nd || '',
-    i.thanhtien || i.tien || 0,
+  // ════════════════════════════════════════════════════════════
+  // Sheet 1: 1_HoaDonNhanh — nhập nhanh (sl=1)
+  // Cột: NGÀY · CÔNG TRÌNH · LOẠI CHI PHÍ · NỘI DUNG · SỐ TIỀN · NGƯỜI THỰC HIỆN · NHÀ CUNG CẤP
+  // ════════════════════════════════════════════════════════════
+  const hdnCols = [
+    { label: 'NGÀY',             w: 13 },
+    { label: 'CÔNG TRÌNH',       w: 32 },
+    { label: 'LOẠI CHI PHÍ',     w: 20 },
+    { label: 'NỘI DUNG',         w: 38 },
+    { label: 'SỐ TIỀN',          w: 15, num: true },
+    { label: 'NGƯỜI THỰC HIỆN',  w: 22 },
+    { label: 'NHÀ CUNG CẤP',     w: 22 },
+  ];
+  const hdnData = expInv
+    .filter(i => (i.sl || 1) <= 1)
+    .map(i => [
+      fmtDate(i.ngay), i.congtrinh || '', i.loai || '', i.nd || '',
+      i.thanhtien || i.tien || 0,
+      i.nguoi || '', i.ncc || '',
+    ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(hdnCols, hdnData,
+      'HÓA ĐƠN NHẬP NHANH',
+      'Hướng dẫn: Mỗi dòng = 1 hóa đơn. SỐ TIỀN = tổng tiền. Ngày định dạng DD-MM-YYYY.'
+    ),
+    '1_HoaDonNhanh'
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // Sheet 2: 2_HoaDonChiTiet — đầy đủ đơn giá × số lượng
+  // Cột: NGÀY · CÔNG TRÌNH · LOẠI CHI PHÍ · TÊN HÀNG HÓA / VẬT TƯ · ĐƠN GIÁ · SỐ LƯỢNG · THÀNH TIỀN · NGƯỜI THỰC HIỆN · NHÀ CUNG CẤP · SỐ HÓA ĐƠN
+  // ════════════════════════════════════════════════════════════
+  const hdctCols = [
+    { label: 'NGÀY',                    w: 13 },
+    { label: 'CÔNG TRÌNH',              w: 32 },
+    { label: 'LOẠI CHI PHÍ',            w: 20 },
+    { label: 'TÊN HÀNG HÓA / VẬT TƯ',  w: 38 },
+    { label: 'ĐƠN GIÁ',                 w: 15, num: true },
+    { label: 'SỐ LƯỢNG',                w: 10 },
+    { label: 'THÀNH TIỀN',              w: 15, num: true },
+    { label: 'NGƯỜI THỰC HIỆN',         w: 22 },
+    { label: 'NHÀ CUNG CẤP',            w: 22 },
+    { label: 'SỐ HÓA ĐƠN',             w: 16 },
+  ];
+  const hdctData = expInv.map(i => [
+    fmtDate(i.ngay), i.congtrinh || '', i.loai || '', i.nd || '',
+    i.tien || 0, i.sl || 1,
+    i.thanhtien || (i.tien * (i.sl || 1)) || 0,
     i.nguoi || '', i.ncc || '', i.sohd || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(invQ_data), 'HoaDonNhanh');
+  ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(hdctCols, hdctData,
+      'HÓA ĐƠN CHI TIẾT',
+      'Hướng dẫn: THÀNH TIỀN = ĐƠN GIÁ × SỐ LƯỢNG. Ngày định dạng DD-MM-YYYY.'
+    ),
+    '2_HoaDonChiTiet'
+  );
 
-  // ── Sheet 2: HoaDonChiTiet — đầy đủ dongia × soluong
-  // Columns: id · ngay · congtrinh · loai · nd · dongia · soluong · tien · nguoi · ncc · sohd
-  const inv_data = [['id','ngay','congtrinh','loai','nd','dongia','soluong','tien','nguoi','ncc','sohd']];
-  expInv.forEach(i => inv_data.push([
-    i.id || '', i.ngay || '', i.congtrinh || '', i.loai || '', i.nd || '',
-    i.tien || 0, i.sl || 1, i.thanhtien || i.tien || 0,
-    i.nguoi || '', i.ncc || '', i.sohd || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(inv_data), 'HoaDonChiTiet');
-
-  // ── Sheet 3: TienUng
-  // Columns: id · ngay · congtrinh · nguoi · tien · nd · loai
-  const ung_data = [['id','ngay','congtrinh','nguoi','tien','nd','loai']];
-  expUng.forEach(u => ung_data.push([
-    u.id || '', u.ngay || '', u.congtrinh || '', u.tp || '',
-    u.tien || 0, u.nd || '', u.loai || 'thauphu',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ung_data), 'TienUng');
-
-  // ── Sheet 4: ChamCong
-  // Columns: ngayDauTuan · congtrinh · ten · luong · phucap · hdmuale · cn · t2…t7 · ghichu
-  const cc_data = [['ngayDauTuan','congtrinh','ten','luong','phucap','hdmuale','cn','t2','t3','t4','t5','t6','t7','ghichu']];
+  // ════════════════════════════════════════════════════════════
+  // Sheet 3: 3_ChamCong — mỗi dòng = 1 công nhân trong 1 tuần
+  // Cột: NGÀY ĐẦU TUẦN · CÔNG TRÌNH · TÊN CÔNG NHÂN · LƯƠNG/NGÀY · PHỤ CẤP · HĐ MUA LẺ · CN · T2..T7 · GHI CHÚ
+  // ════════════════════════════════════════════════════════════
+  const ccCols = [
+    { label: 'NGÀY ĐẦU TUẦN',  w: 15 },
+    { label: 'CÔNG TRÌNH',     w: 32 },
+    { label: 'TÊN CÔNG NHÂN', w: 24 },
+    { label: 'LƯƠNG/NGÀY',    w: 14, num: true },
+    { label: 'PHỤ CẤP',       w: 11, num: true },
+    { label: 'HĐ MUA LẺ',     w: 12, num: true },
+    { label: 'CN',  w: 6 },
+    { label: 'T2',  w: 6 },
+    { label: 'T3',  w: 6 },
+    { label: 'T4',  w: 6 },
+    { label: 'T5',  w: 6 },
+    { label: 'T6',  w: 6 },
+    { label: 'T7',  w: 6 },
+    { label: 'GHI CHÚ', w: 26 },
+  ];
+  const ccData2 = [];
   expCC.forEach(w => {
     (w.workers || []).forEach(wk => {
       const d = wk.d || [0, 0, 0, 0, 0, 0, 0];
-      cc_data.push([
-        w.fromDate || '', w.ct || '', wk.name || '',
+      ccData2.push([
+        fmtDate(w.fromDate), w.ct || '', wk.name || '',
         wk.luong || 0, wk.phucap || 0, wk.hdmuale || 0,
         d[0]||0, d[1]||0, d[2]||0, d[3]||0, d[4]||0, d[5]||0, d[6]||0,
         wk.nd || '',
       ]);
     });
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cc_data), 'ChamCong');
-
-  // ── Sheet 5: ThietBi
-  // Columns: id · congtrinh · ten · soluong · tinhtrang · nguoi · ngay · ghichu
-  const tb_data = [['id','congtrinh','ten','soluong','tinhtrang','nguoi','ngay','ghichu']];
-  expTb.forEach(t => tb_data.push([
-    t.id || '', t.ct || '', t.ten || '', t.soluong || 1,
-    t.tinhtrang || '', t.nguoi || '', t.ngay || '', t.ghichu || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tb_data), 'ThietBi');
-
-  // ── Sheet 6: DanhMuc — 7 cột
-  // Columns: congtrinh · loaichiphi · nhacc · nguoithuchien · thauphu · congnhan · thietbi
-  const dm_data = [['congtrinh','loaichiphi','nhacc','nguoithuchien','thauphu','congnhan','thietbi']];
-  const maxDm = Math.max(
-    cats.congTrinh.length, cats.loaiChiPhi.length,
-    cats.nhaCungCap.length, cats.nguoiTH.length,
-    cats.thauPhu.length, cats.congNhan.length, 0,
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(ccCols, ccData2,
+      'CHẤM CÔNG TUẦN',
+      'Hướng dẫn: 0 = vắng, 1 = đủ ngày, 0.5 = nửa ngày. Ngày đầu tuần định dạng DD-MM-YYYY.'
+    ),
+    '3_ChamCong'
   );
-  for (let i = 0; i < maxDm; i++) {
-    dm_data.push([
-      cats.congTrinh[i]  || '',
-      cats.loaiChiPhi[i] || '',
-      cats.nhaCungCap[i] || '',
-      cats.nguoiTH[i]    || '',
-      cats.thauPhu[i]    || '',
-      cats.congNhan[i]   || '',
-      '',  // thietbi — chưa có danh mục riêng
-    ]);
-  }
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dm_data), 'DanhMuc');
 
-  // ── Sheet 7: HopDong
-  // Columns: congtrinh · giatrihopdong · phantho · phanhoanthien · phatsinh · ghichu
-  const hd_data = [['congtrinh','giatrihopdong','phantho','phanhoanthien','phatsinh','ghichu']];
-  expHd.forEach(([ct, hd]) => hd_data.push([
+  // ════════════════════════════════════════════════════════════
+  // Sheet 4: 4_TienUng — tiền ứng cho thầu phụ / công nhân
+  // Cột: NGÀY · CÔNG TRÌNH · ĐỐI TƯỢNG · TÊN THẦU PHỤ / CÔNG NHÂN · SỐ TIỀN · NỘI DUNG
+  // ════════════════════════════════════════════════════════════
+  const ungCols = [
+    { label: 'NGÀY',                          w: 13 },
+    { label: 'CÔNG TRÌNH',                    w: 32 },
+    { label: 'ĐỐI TƯỢNG',                     w: 14 },
+    { label: 'TÊN THẦU PHỤ / CÔNG NHÂN',      w: 30 },
+    { label: 'SỐ TIỀN',                        w: 15, num: true },
+    { label: 'NỘI DUNG',                       w: 32 },
+  ];
+  const ungData = expUng.map(u => {
+    const doiTuong = u.loai === 'congnhan' ? 'Công nhân' : 'Thầu phụ';
+    return [fmtDate(u.ngay), u.congtrinh || '', doiTuong, u.tp || '', u.tien || 0, u.nd || ''];
+  });
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(ungCols, ungData,
+      'TIỀN ỨNG',
+      'Hướng dẫn: ĐỐI TƯỢNG = "Thầu phụ" hoặc "Công nhân". Ngày định dạng DD-MM-YYYY.'
+    ),
+    '4_TienUng'
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // Sheet 5: 5_ThietBi — thiết bị thi công
+  // Cột: CÔNG TRÌNH · TÊN THIẾT BỊ · SỐ LƯỢNG · TÌNH TRẠNG · NGƯỜI PHỤ TRÁCH · NGÀY · GHI CHÚ
+  // ════════════════════════════════════════════════════════════
+  const tbCols = [
+    { label: 'CÔNG TRÌNH',      w: 32 },
+    { label: 'TÊN THIẾT BỊ',   w: 26 },
+    { label: 'SỐ LƯỢNG',       w: 10 },
+    { label: 'TÌNH TRẠNG',     w: 22 },
+    { label: 'NGƯỜI PHỤ TRÁCH', w: 22 },
+    { label: 'NGÀY',           w: 13 },
+    { label: 'GHI CHÚ',        w: 26 },
+  ];
+  const tbData2 = expTb.map(t => [
+    t.ct || '', t.ten || '', t.soluong || 1,
+    t.tinhtrang || '', t.nguoi || '',
+    fmtDate(t.ngay), t.ghichu || '',
+  ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(tbCols, tbData2,
+      'THIẾT BỊ',
+      'Hướng dẫn: Mỗi dòng = 1 thiết bị. TÌNH TRẠNG: "Đang hoạt động", "Cần sửa chữa", v.v. Ngày DD-MM-YYYY.'
+    ),
+    '5_ThietBi'
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // Sheet 6: 6_DanhMuc — toàn bộ danh mục (format 2 cột)
+  // Cột: LOẠI DANH MỤC · TÊN
+  // ════════════════════════════════════════════════════════════
+  const dmCols = [
+    { label: 'LOẠI DANH MỤC', w: 30 },
+    { label: 'TÊN',           w: 44 },
+  ];
+  const dmGroups = [
+    ['Công Trình',              cats.congTrinh   || []],
+    ['Loại Chi Phí',            cats.loaiChiPhi  || []],
+    ['Nhà Cung Cấp',            cats.nhaCungCap  || []],
+    ['Người Thực Hiện',         cats.nguoiTH     || []],
+    ['Thầu Phụ / TP',           cats.thauPhu     || []],
+    ['Công Nhân',               cats.congNhan    || []],
+    ['Máy / Thiết Bị Thi Công', cats.tbTen       || []],
+  ];
+  const dmData = [];
+  dmGroups.forEach(([groupName, items]) => {
+    items.forEach(item => dmData.push([groupName, item]));
+  });
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(dmCols, dmData,
+      'DANH MỤC',
+      'Hướng dẫn: Mỗi dòng = 1 mục. Thêm dòng mới để bổ sung khi import. LOẠI DANH MỤC phải đúng chính xác tên nhóm.'
+    ),
+    '6_DanhMuc'
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // Sheet 7: 7_HopDongChinh — hợp đồng chính theo công trình
+  // Cột: CÔNG TRÌNH · GIÁ TRỊ HỢP ĐỒNG CHÍNH · GIÁ TRỊ HỢP ĐỒNG PHỤ · PHÁT SINH
+  // ════════════════════════════════════════════════════════════
+  const hdcCols = [
+    { label: 'CÔNG TRÌNH',                 w: 36 },
+    { label: 'GIÁ TRỊ HỢP ĐỒNG CHÍNH',    w: 24, num: true },
+    { label: 'GIÁ TRỊ HỢP ĐỒNG PHỤ',      w: 22, num: true },
+    { label: 'PHÁT SINH',                  w: 15, num: true },
+  ];
+  const hdcData = expHd.map(([ct, hd]) => [
     ct,
-    hd.giaTri          || 0,
-    hd.giaTriphu       || 0,
-    hd.phanHoanThien   || 0,
-    hd.phatSinh        || 0,
-    hd.ghichu          || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hd_data), 'HopDong');
+    hd.giaTri    || 0,
+    hd.giaTriphu || 0,
+    hd.phatSinh  || 0,
+  ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(hdcCols, hdcData,
+      'HỢP ĐỒNG CHÍNH',
+      'Hướng dẫn: Mỗi dòng = 1 hợp đồng theo công trình. Giá trị nhập bằng số (VNĐ), không có dấu chấm/phẩy.'
+    ),
+    '7_HopDongChinh'
+  );
 
-  // ── Sheet 8: ThuTien
-  // Columns: id · congtrinh · ngay · sotien · nguoith · ghichu
-  const thu_data = [['id','congtrinh','ngay','sotien','nguoith','ghichu']];
-  expThu.forEach(r => thu_data.push([
-    r.id || '', r.congtrinh || '', r.ngay || '',
+  // ════════════════════════════════════════════════════════════
+  // Sheet 8: 8_ThuTien — lịch sử thu tiền
+  // Cột: NGÀY · CÔNG TRÌNH · SỐ TIỀN · NGƯỜI THỰC HIỆN · NỘI DUNG
+  // ════════════════════════════════════════════════════════════
+  const thuCols = [
+    { label: 'NGÀY',            w: 13 },
+    { label: 'CÔNG TRÌNH',      w: 32 },
+    { label: 'SỐ TIỀN',         w: 15, num: true },
+    { label: 'NGƯỜI THỰC HIỆN', w: 22 },
+    { label: 'NỘI DUNG',        w: 32 },
+  ];
+  const thuData = expThu.map(r => [
+    fmtDate(r.ngay), r.congtrinh || '',
     r.tien || 0, r.nguoi || '', r.nd || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(thu_data), 'ThuTien');
+  ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(thuCols, thuData,
+      'THU TIỀN',
+      'Hướng dẫn: Mỗi dòng = 1 lần thu tiền. Ngày định dạng DD-MM-YYYY.'
+    ),
+    '8_ThuTien'
+  );
 
-  // ── Sheet 9: ThauPhu
-  // Columns: id · congtrinh · tenthau · ngay · giatri · phatsinh · ghichu
-  const tp_data = [['id','congtrinh','tenthau','ngay','giatri','phatsinh','ghichu']];
-  expTp.forEach(r => tp_data.push([
-    r.id || '', r.congtrinh || '', r.thauphu || '', r.ngay || '',
+  // ════════════════════════════════════════════════════════════
+  // Sheet 9: 9_HopDongThauPhu — hợp đồng thầu phụ
+  // Cột: CÔNG TRÌNH · TÊN THẦU PHỤ · GIÁ TRỊ HỢP ĐỒNG · PHÁT SINH · NỘI DUNG
+  // ════════════════════════════════════════════════════════════
+  const hdtpCols = [
+    { label: 'CÔNG TRÌNH',        w: 32 },
+    { label: 'TÊN THẦU PHỤ',     w: 26 },
+    { label: 'GIÁ TRỊ HỢP ĐỒNG', w: 22, num: true },
+    { label: 'PHÁT SINH',          w: 15, num: true },
+    { label: 'NỘI DUNG',           w: 32 },
+  ];
+  const hdtpData = expTp.map(r => [
+    r.congtrinh || '', r.thauphu || '',
     r.giaTri || 0, r.phatSinh || 0, r.nd || '',
-  ]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tp_data), 'ThauPhu');
+  ]);
+  XLSX.utils.book_append_sheet(wb,
+    _mkSheet(hdtpCols, hdtpData,
+      'HỢP ĐỒNG THẦU PHỤ',
+      'Hướng dẫn: Mỗi dòng = 1 hợp đồng thầu phụ. Giá trị nhập bằng số (VNĐ).'
+    ),
+    '9_HopDongThauPhu'
+  );
 
   const fname = yr === 0 ? 'export_tat_ca_nam.xlsx' : `export_${yr}.xlsx`;
   XLSX.writeFile(wb, fname);
@@ -989,18 +1447,8 @@ function exportAllCSV() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// [11] MISC
+// [11] PUBLIC WRAPPERS — Excel (gọi từ HTML onclick)
 // ══════════════════════════════════════════════════════════════
 
-function openDeleteModal() {
-  toast('Tính năng Xóa Dữ Liệu đã bị tắt.', 'error');
-}
-
-// ══════════════════════════════════════════════════════════════
-// [12] PUBLIC WRAPPERS (gọi từ HTML onclick)
-// ══════════════════════════════════════════════════════════════
-
-function toolExportJSON()  { exportJSON(); }
-function toolImportJSON()  { document.getElementById('import-json-input').click(); }
 function toolImportExcel() { document.getElementById('import-file-input').click(); }
 function toolExportExcel() { openExportModal(); }
